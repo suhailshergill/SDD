@@ -5,3 +5,12 @@ Configure once using:
 
 For each compile, run
   ./waf install
+
+
+To run the resulting generator:
+  ./bin/GenerateConstraints -plugin gen-constraints /path/to/file
+
+We can add arguments using:
+  -plugin-arg-gen-constraints XXXXXXX
+
+but we have to handle the parsing ourselves.
