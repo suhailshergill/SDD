@@ -1,0 +1,7 @@
+Configure once using:
+  ./waf configure --llvm-prefix=/unsup/llvm-2.8 --prefix=`pwd`
+
+ This tells waf to install into the bin/ directory
+
+For each compile, run
+  ./waf install
