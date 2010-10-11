@@ -1,0 +1,4 @@
+/.waf-*
+/.build
+/bin/GenerateConstraints
+/.lock-wscript
