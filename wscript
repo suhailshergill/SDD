@@ -18,6 +18,7 @@ def set_options(opt):
 
 def configure(conf):
     conf.check_tool('compiler_cxx compiler_cc')
+    conf.check_tool('tex')
 
     llvm_inc = '%s/include' % Options.options.llvmprefix
     llvm_lib = '%s/lib' % Options.options.llvmprefix
@@ -28,6 +29,7 @@ def configure(conf):
     conf.env['LLVMLIBDIR'] = llvm_lib
 
 def build(bld):
+    bld.recurse('doc')
     cgen = bld.new_task_gen(
         features = 'cxx cprogram',
         source = [ 'src/Driver.cpp',
@@ -56,5 +58,3 @@ def build(bld):
             'dl'
             ],
         install_path = '${PREFIX}/bin')
-
-
