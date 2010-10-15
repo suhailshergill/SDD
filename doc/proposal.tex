@@ -17,116 +17,143 @@ of input programs to find minimal failing inputs. The algorithm is intentionally
 uninformed about the underlying structure of inputs to keep it decoupled from
 the semantics of any particular programming language.
 
-Unfortunately, this decoupling can be a serious problem for input files with
-many internal dependencies. As an example, consider the case where the Delta
-Debugging algorithm removes a base class from which several other derive in a
+Unfortunately, this decoupling can be self-defeating for input files with
+rich internal dependencies. As an example, consider the case where the Delta
+Debugging algorithm removes a base class from which several others derive in a
 C++ source file. Removing, or just breaking, any class in a long inheritance
 chain will produce a program that does not compile at all. The Delta Debugging
-algorithm is actually designed to tolerate many failures of this form. However,
+algorithm is actually designed to tolerate many failures of this form; however,
 at least some successes are required to reduce the input size by any appreciable
-factor. In the presence of many internal dependencies, it is likely that no
+factor. In the presence of numerous internal dependencies, it is likely that no
 viable reductions will ever emerge. Cases have been observed where the Delta
 Debugging algorithm has run for three or more days and is unable to reduce a
-700kb input file below 600kb (it only managed to remove some whitespace to make
-the example even less readable).
+700kb input file below 600kb.  In these cases, the Delta Debugging algorithm only managed to remove some whitespace, making
+the example even less readable.
 
-This project would aim to introduce the simple concept of \emph{dependency} to the
-Delta Debugging algorithm to drastically reduce the number of impossible
-inputs. This will both reduce the search time and make possible some reductions
+This project aims to introduce the simple concept of \emph{dependency} to the
+Delta Debugging algorithm to prune impossible inputs from the search space.
+This will both reduce the search time and make possible some reductions
 that would never emerge under traditional Delta Debugging. The algorithm will
 only be altered to take into account the notion of dependency constraints
-between character ranges of the input. A frontend will be required for every
-type of structurally complex input (C++, Python, Java), but the algorithm itself
-will remain ignorant of any particular input language.
+between character ranges of the input. A frontend will be required for each
+structurally complex input format (C++, Python, Java), but the algorithm itself
+will remain ignorant of the semantics any particular input language.
 
 An advantage of basing this work on the Delta Debugging algorithm is that it
 does not have to be $100 \%$ accurate or precise. Some amount of robustness
 against inaccuracy in the frontend is inherent to the algorithm and the search
-will continue around failures. Our goal is only to reduce the number of failures
-over the baseline of Delta Debugging. Our structured approach will allow us to
-effectively explore the program space along several well-formed axes that delta
-debugging cannot touch.
+will continue around improperly captured dependencies.  The resulting algorithm
+will not be in a worse position than the original Delta Debugging algorithm with
+regard to spurious syntax errors.  Our goal is only to reduce the number of failures
+over the baseline of Delta Debugging. This structured approach will allow us to
+effectively explore the space of mostly well-formed input programs and introduce
+reductions unavailable to traditional Delta Debugging.
 
 
 \section{Implementation Details}
-We would like to decouple the actual algorithm which deals with the dependencies
-from the process of generating said constraints. 
+We will decouple the actual algorithm, which deals with tracking dependencies
+and choosing sections of code to eliminate, from the process of generating said dependencies.
+
 \begin{itemize}
-\item{The frontend will be responsible for parsing the source file and coming up with
-the semantic dependencies between source ranges. There are two reasonable
-choices for creating frontends:}
+\item{The \emph{frontend} will be responsible for parsing source files and generating
+semantic dependencies between source ranges.  We have identified two possible frontends:
+}
 \begin{itemize}
-\item{Instrument clang to output structural constraints over C/C++ code. This
-  would be based on recognizing the source ranges of each syntactic construct
-  and noting both syntactic and semantic relationships.}
-\item{Use the Python AST module. With this approach, we could convert a modified
-  AST to executable code directly without having to deal in source ranges.}
-\end{itemize}
-\item Regardless of the frontend, constraints would be generated based on the
-structure of inputs. The primary driving constraint that needs to be generated
-is of the form \emph{dependsOn(X, Y)} i.e., constrain X depends on Y. Various
-dependencies exist:
-\begin{itemize}
-\item{Variable references depend on their declarations.}
-\item{Variable declarations depend on the declaration of the type of the variable.}
-\item{Field references depend on the declaration of the variable containing the field.}
-\item{Function calls depend on their declarations (again, a subset of the first).}
-\item{Typedefs introduce dependencies between the new type and the old type}
+\item{Clang, from the LLVM project.  We would use the Clang libraries to output structural constraints over C/C++ code.  This
+  approach would generate syntactic and semantic dependency constraints over \emph{source ranges}.}
+\item{The Python AST module.  This approach is simpler and only requires us to feed a Python source
+file to the module, which produces an AST.  We would then analyze the AST to generate type and data
+dependency constraints.  With this approach, we could convert a modified
+AST to executable code directly without having to deal with source ranges, or even program text.}
 \end{itemize}
 
-\item Once the dependencies have been enumerated the actual algorithm would then
-  adopt a search strategy and start removing constructs (declarations,
-  statements etc.). Every time a construct is removed anything which depends on
-  that is also (transitively) removed (or more generally 'transformed' in some
-  manner). A Datalog/Prolog implementation which computes such transitive
-  closures based on the dependencies as generated by the frontend will be
-  responsible for aggregating the symbolic ranges of the dependant
-  constructs. After an intermediate step which translates the symbolic source
-  ranges from the dependency graph back to the actual source ranges, we can
-  reconstitute the input with the removed sections and then perform the standard
-  Delta Debugging trick of just trying the input and observing the
-  failure/success mode.
+\item In either case, we will generate constraints based on the
+structure of inputs. The constraint in which we have a primary interest is
+\emph{dependsOn(X, Y)} (i.e., construct X depends on construct Y).  We have identified various
+dependencies:
+
+\begin{itemize}
+\item{Variable and function \emph{references} depend on their declarations.}
+\item{Variable and function \emph{declarations} depend on the declaration of the type of the variable.}
+% \item{Field references depend on the declaration of the variable containing the field.}
+% \item{Function calls depend on their declarations (again, a subset of the first).}
+\item{\emph{Typedefs} introduce dependencies between the new and old types.}
+\end{itemize}
+
+\item To take advantage of the dependencies, we will investigate new search
+  strategies beyond that employed by traditional Delta Debugging.  The goal
+  of these strategies is to remove constructs (and their dependencies) in the
+  order which minimizes the size of the input the fastest.
+% \item Once the dependencies have been enumerated the actual algorithm would then
+%   adopt a search strategy and start removing constructs (declarations,
+%   statements etc.).
+  Every time a construct is removed, anything which depends on
+  it is also (transitively) removed.  Beyond removal, we may also investigate
+  more general transformations of constructs.%  (or more generally 'transformed' in some
+  % manner).
+
+  We will use a Datalog or Prolog implementation to compute the transitive
+  closure of removed constructs based on our generated dependency constraints.
+  With some postprocessing, we can reconstruct the remaining program source ranges
+  and follow the standard Delta Debugging algorithm in running the debuggee on the
+  new input and observing either failures or successes.
+% With  based on the dependencies as generated by the frontend will be
+%   responsible for aggregating the symbolic ranges of the dependant
+%   constructs. After an intermediate step which translates the symbolic source
+%   ranges from the dependency graph back to the actual source ranges, we can
+%   reconstitute the input with the removed sections and then perform the standard
+%   Delta Debugging trick of just trying the input and observing the
+%   failure/success mode.
 
 \subsection{Search Strategies}
 There are two obvious ways to search the program space:
 \begin{itemize}
 \item \emph{Top Down}: Start by removing top-level declarations (and things that
   require them). Start removing smaller entities (statements) once no more
-  progress can be made there. Iterate as necessary.
+  progress can be made there, iterating as necessary.
 \item \emph{Bottom Up}: Start removing non-declaration statements aggressively
   as in the search strategy from Zeller \cite{dd}. After no progress can be made, start
   removing larger constructs by working at the next higher stratum.
 \end{itemize}
-At this point, it isn't clear which is superior, but bottom up is at least
-feasible in this scenario, whereas it is not under standard delta debugging.
+It is not yet clear which is superior, but bottom up is at least
+feasible in this scenario, whereas it is not under standard Delta Debugging.
 
-Delta debugging typically starts off by approximating binary search. This is
+Delta Debugging typically starts off by approximating binary search. This is
 possible under a structured framework, too. To that end we may consider some
 heuristics and approximate techniques from graph cutting and image segmentation
-literature \cite{nc} in order to keep us from making sweeping changes eg.,
-removing a base class on which all classes may depend.
+literature \cite{nc} in order to keep us from making sweeping changes (eg.,
+removing a base class on which all classes may depend).
 
 \subsection{Transformations}
-After identifying dependencies between lexical elements, there are several
-things we might like to do to simplify test cases:
+We may be able to do better than simply removing program constructs
+if we have dependency (or possibly even richer) information.  Some possibilities are:
+% After identifying dependencies between lexical elements, there are several
+% things we might like to do to simplify test cases:
 \begin{itemize}
-\item Remove element
-\item Replace type with something simpler (stuct->int)
-\item Remove function body
-\item Remove struct/class/union field
-\item Remove template specializations
+% \item Remove element
+% \item Replace type with something simpler (stuct->int)
+\item Type simplification.  We could replace complex class types with simple primitives.
+\item Function body removal, essentially replacing a function definition with a declaration.
+\item Remove a struct, class, or union field.
+\item Remove template specializations.
 \end{itemize}
-The first is easily supported in this framework. With a little work, removing
-struct/class/union fields is pretty simple. Template specializations should also
-be simple. Removing function bodies could be difficult because just removing the
-\{\} and everything in-between is insufficient; the body needs to be replaced by a
-semicolon.
 
-Something like this is possible with some work and maybe some extra annotation
-within the source ranges. We could specify a list of substitutions for some
-ranges that would just be empty most of the time.
+Removing entire entities is simple in this framework, since we will record
+the source ranges of all constructs.
+% The first is easily supported in this framework. With a little work, removing
+% struct/class/union fields is pretty simple. Template specializations should also
+% be simple.
+Removing function bodies could be more difficult because just removing
+the curly braces of the body and everything in-between is
+insufficient; the body needs to be replaced by a semicolon to produce
+a syntactically valid declaration in C.  Something like this is
+possible with some extra semantic annotations within the
+source ranges. We could specify a list of substitutions for some
+ranges that would just be empty for most constructs; for a function
+body the list could contain a semicolon.  A related example could be
+replacing a complex conditional in a loop with a simple constant.
 
-Replace by simpler type would be very difficult to achieve automatically and
+Type simplification would be difficult to achieve automatically and
 will probably be beyond the scope of the current project.
 
 \end{itemize}
@@ -136,8 +163,8 @@ Python is interesting in that removing a type is challenging. If class A is
 removed, we can easily remove all of its instantiations. We would have to
 perform an interprocedural dataflow analysis, however, to find all of the
 locations it could have been assigned to. Since we do not need to be precise, we
-do not need to make a sound or complete estimate (we can just do a best
-effort). This is easier under a typed language since we need only remove all
+do not need to make a sound or complete estimate and we can just do a best
+effort. This is easier under a typed language since we need only remove all
 references to that type.
 
 
