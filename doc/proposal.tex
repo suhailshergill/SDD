@@ -28,9 +28,7 @@ size by any appreciable factor. In the presence of numerous internal
 dependencies, it is likely that no viable reductions will ever emerge. Cases
 have been observed where the Delta Debugging algorithm ran for more than three
 days and was unable to reduce 700kb input files by more than $20 \%$. In these
-situations, the Delta Debugging algorithm only managed to remove 
-whitespace\ldots a self-defeating action which served only to further obfuscate
-the input files.
+situations, the Delta Debugging algorithm only managed to remove whitespace.
 
 This project aims to introduce the simple concept of \emph{dependency} to the
 Delta Debugging algorithm to prune impossible inputs from the search space.
@@ -63,6 +61,7 @@ dependencies.
   with Clang (which is a C/C++ front-end) and would use Clang libraries to
   output structural constraints over C/C++ code.  This approach would generate
   syntactic and semantic dependency constraints over \emph{source ranges}.
+
 \item The constraint in which we have a primary interest is \emph{dependsOn(X,
   Y)} (i.e., construct X depends on construct Y).  We have identified various
   dependencies:
@@ -81,7 +80,7 @@ type of the variable.}
 \item To take advantage of the dependencies, we will investigate new search
   strategies beyond that employed by traditional Delta Debugging.  The goal
   of these strategies is to remove constructs (and their dependencies) in the
-  order which minimizes the size of the input the fastest.
+  order which most quickly reduces the size of the input.
 % \item Once the dependencies have been enumerated the actual algorithm would then
 %   adopt a search strategy and start removing constructs (declarations,
 %   statements etc.).
@@ -103,6 +102,8 @@ type of the variable.}
 %   Delta Debugging trick of just trying the input and observing the
 %   failure/success mode.
 
+\end{itemize}
+
 \subsection{Search Strategies}
 The search strategy can be approached using either common approach:
 \begin{itemize}
@@ -115,9 +116,9 @@ The search strategy can be approached using either common approach:
 \end{itemize}
 It is not yet clear which method is superior, but the proposed dependency
 modifications should make the bottom-up search strategy a more attractive
-option than it is in more traditional, dependency-unaware Delta Debugging.
+option than it is in a more traditional, dependency-unaware Delta Debugging.
 
-Delta Debugging typically starts off by approximating binary search. This is
+Delta Debugging typically starts off with a standard binary search. This is
 possible under a structured framework, too. To that end we may consider some
 heuristics and approximate techniques from graph cutting and image segmentation
 literature \cite{nc} in order to keep us from making sweeping changes (eg.,
@@ -155,8 +156,6 @@ replacing a complex conditional in a loop with a simple constant.
 Type simplification would be difficult to achieve automatically and
 will probably be beyond the scope of the current project.
 
-\end{itemize}
-
 
 \section{Team Members}
 \begin{itemize}
@@ -168,12 +167,12 @@ will probably be beyond the scope of the current project.
 \section{Deliverables Proposed Schedule}
 Our deliverables schedule is dictated in part by the program flow and has the
 benefit of front-loading most of the code-intensive segments. The project is
-viewed as consisting of three main components: Constraint Generation (which has
-been budgetted for 4 of our 7 weeks), Querying Framework (budgetted for 2
-weeks), and the Testing Platform that unifies them (budgetted for 1 week). While
-optimistic, this schedule should provide enough leniency that overruns should
-be unlikely.
-
+viewed as consisting of three main components: Constraint Generation (budget: 4
+of our 7 weeks), Querying Framework (budget: 2 weeks), and the Testing Platform
+that unifies them (budget: 1 week). While optimistic, this schedule should
+provide enough leniency that overruns should be unlikely.
+\\
+\\
 \begin{tabular}{|l|l|l|}
 \hline
 \multicolumn{3}{|c|}{Timeline} \\
@@ -198,8 +197,7 @@ There has been some prior work in the area with, perhaps, the one most closely
 related to ours being the Hierarchical Delta Debugging algorithm as proposed by
 Mishergi et al. \cite{hdd} which works on tree-structured input. However,
 while the algorithm can operate on the AST of a program it is unable to
-account for dependencies arising from non-ancestral nodes due to class/type
-declarations etc.
+account for dependencies arising from non-ancestral nodes due to declarations.
 
 There have been other extensions to the delta debugging algorithm as well, with
 variants such as Artho's Iterative Delta Debugging \cite{idd} directing a search
