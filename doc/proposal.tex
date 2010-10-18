@@ -74,13 +74,16 @@ type of the variable.}
 % the field.}
 % \item{Function calls depend on their declarations (again, a subset of the
 % first).}
-\item{\emph{Typedefs} introduce dependencies between the new and old types.}
+\item{\emph{Typedef} aliases depend on the declaration of the aliased type.}
+\item{Dependencies introduced by the \emph{transitive} closure of the dependency
+relation.
 \end{itemize}
 
 \item To take advantage of the dependencies, we will investigate new search
   strategies beyond that employed by traditional Delta Debugging.  The goal
   of these strategies is to remove constructs (and their dependencies) in the
-  order which most quickly reduces the size of the input.
+  order which most quickly isolates the failure-inducing code until a minimally
+  failing input has been found.
 % \item Once the dependencies have been enumerated the actual algorithm would then
 %   adopt a search strategy and start removing constructs (declarations,
 %   statements etc.).
