@@ -1,4 +1,3 @@
-
 \documentclass[11pt]{article}
 \include{template}
 \title{Semantic Delta-Debugging} 
@@ -7,6 +6,18 @@ Andrew Coonce, Suhail Shergill, Tristan Ravitch\\
 \email{\{coonce, shergill, travitch\}@cs.wisc.edu}
 }
 \begin{document}
+\special{papersize=8.5in,11in}
+\setlength{\pdfpageheight}{\paperheight}
+\setlength{\pdfpagewidth}{\paperwidth}
+% You may need to change the horizontal offset to do what you
+% want.  Setting \hoffset to a negative value moves all printed
+% material to the left on all pages; setting it to a positive value
+% moves all printed material to the right on all pages; not setting
+% it keeps all printed material in it's default position.  \voffset
+% is the vertical offset: use negative value for up; don't set if
+% you want to use default position; use positive for down.
+% \hoffset = -0.2truein
+% \voffset = -0.2truein
 \maketitle
 
 \section{Overview}
@@ -17,8 +28,8 @@ of input programs to find minimal failing inputs. The algorithm is intentionally
 uninformed about the underlying structure of inputs to keep it decoupled from
 the semantics of any particular programming language.
 
-Unfortunately, this decoupling can be self-defeating for input files with
-rich internal dependencies. As an example, consider the case where the Delta
+Unfortunately, this decoupling can be self-defeating for input files with rich
+internal dependencies. As an example, consider the case where the Delta
 Debugging algorithm removes a base class from which several others derive in a
 C++ source file. Removing, or just breaking, any class in a long inheritance
 chain will produce a program that does not compile at all. The Delta Debugging
@@ -32,10 +43,10 @@ situations, the Delta Debugging algorithm only managed to remove whitespace.
 
 This project aims to introduce the simple concept of \emph{dependency} to the
 Delta Debugging algorithm to prune impossible inputs from the search space.
-This will both reduce the search time and make possible some reductions
-that would never emerge under traditional Delta Debugging. The algorithm will
-only be altered to take into account the notion of dependency constraints
-between character ranges of the input. A different front-end will be required for each
+This will both reduce the search time and make possible some reductions that
+would never emerge under traditional Delta Debugging. The algorithm will only be
+altered to take into account the notion of dependency constraints between
+character ranges of the input. A different front-end will be required for each
 structurally complex input format (C++, Python, Java), but the algorithm itself
 will remain ignorant of the semantics any particular input language.
 
@@ -44,9 +55,9 @@ does not have to be precise or $100 \%$ accurate. Some amount of robustness
 against inaccuracy in the front-end is inherent to the algorithm and the search
 will continue around improperly captured dependencies.  The resulting algorithm
 will not be in a worse position than the original Delta Debugging algorithm with
-regard to spurious syntax errors.  Our goal is only to reduce the number of 
-failures over the baseline of Delta Debugging. This structured approach will 
-allow us to effectively explore the space of mostly well-formed input programs 
+regard to spurious syntax errors.  Our goal is only to reduce the number of
+failures over the baseline of Delta Debugging. This structured approach will
+allow us to effectively explore the space of mostly well-formed input programs
 and introduce reductions unavailable to traditional Delta Debugging.
 
 
@@ -69,41 +80,25 @@ dependencies.
 \begin{itemize}
 \item{Variable and function \emph{references} depend on their declarations.}
 \item{Variable and function \emph{declarations} depend on the declaration of the
-type of the variable.}
-% \item{Field references depend on the declaration of the variable containing
-% the field.}
-% \item{Function calls depend on their declarations (again, a subset of the
-% first).}
+  type of the variable.}
 \item{\emph{Typedef} aliases depend on the declaration of the aliased type.}
 \item{Dependencies introduced by the \emph{transitive} closure of the dependency
-relation.
+  relation.
 \end{itemize}
 
 \item To take advantage of the dependencies, we will investigate new search
-  strategies beyond that employed by traditional Delta Debugging.  The goal
-  of these strategies is to remove constructs (and their dependencies) in the
-  order which most quickly isolates the failure-inducing code until a minimally
-  failing input has been found.
-% \item Once the dependencies have been enumerated the actual algorithm would then
-%   adopt a search strategy and start removing constructs (declarations,
-%   statements etc.).
-  Every time a construct is removed, anything which depends on
-  it is also (transitively) removed.  Beyond removal, we may also investigate
-  more general transformations of constructs.%  (or more generally 'transformed'
-% in some manner).
+  strategies beyond that employed by traditional Delta Debugging.  The goal of
+  these strategies is to remove constructs (and their dependencies) in the order
+  which most quickly isolates the failure-inducing code until a minimally
+  failing input has been found.  Every time a construct is removed, anything
+  which depends on it is also (transitively) removed.  Beyond removal, we may
+  also investigate more general transformations of constructs.
 
   We will use a Datalog or Prolog implementation to compute the transitive
   closure of removed constructs based on our generated dependency constraints.
-  With some postprocessing, we can reconstruct the remaining program source ranges
-  and follow the standard Delta Debugging algorithm in running the debuggee on the
-  new input and observing either failures or successes.
-% With  based on the dependencies as generated by the front-end will be
-%   responsible for aggregating the symbolic ranges of the dependant
-%   constructs. After an intermediate step which translates the symbolic source
-%   ranges from the dependency graph back to the actual source ranges, we can
-%   reconstitute the input with the removed sections and then perform the standard
-%   Delta Debugging trick of just trying the input and observing the
-%   failure/success mode.
+  With some postprocessing, we can reconstruct the remaining program source
+  ranges and follow the standard Delta Debugging algorithm in running the
+  debuggee on the new input and observing either failures or successes.
 
 \end{itemize}
 
@@ -114,12 +109,12 @@ The search strategy can be approached using either common approach:
   require them). Start removing smaller entities (statements) once no more
   progress can be made there, iterating as necessary.
 \item \emph{Bottom-up}: Start removing non-declaration statements aggressively
-  as in the search strategy from Zeller \cite{dd}. After no progress can be made, start
-  removing larger constructs by working at the next higher stratum.
+  as in the search strategy from Zeller \cite{dd}. After no progress can be
+  made, start removing larger constructs by working at the next higher stratum.
 \end{itemize}
 It is not yet clear which method is superior, but the proposed dependency
-modifications should make the bottom-up search strategy a more attractive
-option than it is in a more traditional, dependency-unaware Delta Debugging.
+modifications should make the bottom-up search strategy a more attractive option
+than it is in a more traditional, dependency-unaware Delta Debugging.
 
 Delta Debugging typically starts off with a standard binary search. This is
 possible under a structured framework, too. To that end we may consider some
@@ -128,36 +123,30 @@ literature \cite{nc} in order to keep us from making sweeping changes (eg.,
 removing a base class on which all classes may depend).
 
 \subsection{Transformations}
-We may be able to do better than simply removing program constructs
-if we have dependency (or possibly even richer) information.  Some possibilities are:
-% After identifying dependencies between lexical elements, there are several
-% things we might like to do to simplify test cases:
+We may be able to do better than simply removing program constructs if we have
+dependency (or possibly even richer) information.  Some possibilities are:
 \begin{itemize}
-% \item Remove element
-% \item Replace type with something simpler (struct \rightarrow int)
-\item Type simplification.  We could replace complex class types with simple primitives.
-\item Function body removal, essentially replacing a function definition with a declaration.
+\item Type simplification.  We could replace complex class types with simple
+  primitives.
+\item Function body removal, essentially replacing a function definition with a
+  declaration.
 \item Remove a struct, class, or union field.
 \item Remove template specializations.
 \end{itemize}
 
-Removing entire entities is simple in this framework, since we will record
-the source ranges of all constructs.
-% The first is easily supported in this framework. With a little work, removing
-% struct/class/union fields is pretty simple. Template specializations should also
-% be simple.
-Removing function bodies could be more difficult because just removing
-the curly braces of the body and everything in-between is
-insufficient; the body needs to be replaced by a semicolon to produce
-a syntactically valid declaration in C.  Something like this is
-possible with some extra semantic annotations within the
-source ranges. We could specify a list of substitutions for some
-ranges that would just be empty for most constructs; for a function
-body the list could contain a semicolon.  A related example could be
-replacing a complex conditional in a loop with a simple constant.
+Removing entire entities is simple in this framework, since we will record the
+source ranges of all constructs.  Removing function bodies could be more
+difficult because just removing the curly braces of the body and everything
+in-between is insufficient; the body needs to be replaced by a semicolon to
+produce a syntactically valid declaration in C.  Something like this is possible
+with some extra semantic annotations within the source ranges. We could specify
+a list of substitutions for some ranges that would just be empty for most
+constructs; for a function body the list could contain a semicolon.  A related
+example could be replacing a complex conditional in a loop with a simple
+constant.
 
-Type simplification would be difficult to achieve automatically and
-will probably be beyond the scope of the current project.
+Type simplification would be difficult to achieve automatically and will
+probably be beyond the scope of the current project.
 
 
 \section{Team Members}
@@ -173,9 +162,7 @@ benefit of front-loading most of the code-intensive segments. The project is
 viewed as consisting of three main components: Constraint Generation (budget: 4
 of our 7 weeks), Querying Framework (budget: 2 weeks), and the Testing Platform
 that unifies them (budget: 1 week). While optimistic, this schedule should
-provide enough leniency that overruns should be unlikely.
-\\
-\\
+provide enough leniency that overruns should be unlikely.  \\ \\
 \begin{tabular}{|l|l|l|}
 \hline
 \multicolumn{3}{|c|}{Timeline} \\
@@ -198,15 +185,15 @@ Source Line mappings and \\
 \section{Related Work}
 There has been some prior work in the area with, perhaps, the one most closely
 related to ours being the Hierarchical Delta Debugging algorithm as proposed by
-Mishergi et al. \cite{hdd} which works on tree-structured input. However,
-while the algorithm can operate on the AST of a program it is unable to
-account for dependencies arising from non-ancestral nodes due to declarations.
+Mishergi et al. \cite{hdd} which works on tree-structured input. However, while
+the algorithm can operate on the AST of a program it is unable to account for
+dependencies arising from non-ancestral nodes due to declarations.
 
 There have been other extensions to the delta debugging algorithm as well, with
 variants such as Artho's Iterative Delta Debugging \cite{idd} directing a search
-along the axis of version control commits. Brummayer et al. \cite{smt} used a 
-variant of the Hierarchical Delta-Debugging algorithm, using the knowledge of 
-formula structures and types to speed up the delta-debugging process on SMT 
+along the axis of version control commits. Brummayer et al. \cite{smt} used a
+variant of the Hierarchical Delta-Debugging algorithm, using the knowledge of
+formula structures and types to speed up the delta-debugging process on SMT
 formulas.
 
 Our constraint generation step can also be seen as a special case of program
@@ -228,7 +215,6 @@ front-end would make certain things easier too, as we could work at the AST
 level and convert it to executable code directly without having to deal with
 source ranges, or even program text.
 
-\bibliographystyle{plain}
-\bibliography{refs}
+\bibliographystyle{plain} \bibliography{refs}
 
 \end{document}
