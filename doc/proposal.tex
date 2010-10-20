@@ -176,15 +176,19 @@ appreciably.
 Next, we will examine larger test cases with complex internal
 dependencies for which ddmin is unsuitable.  Ideally, we could do this
 using the original 700kb input file discussed in section
-\ref{sec:intro}.  This may not be possible if we are not able to cover
-enough of the C++ language to generate all of the constraints for this
-rather complex file.  If this is the case, we will generate larger C
-files with complex dependencies between structures using composition
-instead of inheritance.  This will capture the spirit of the
-underlying problem without requiring the full machinery to handle all
-of C++.  Our goal with these inputs will be to show that our algorithm
-can reduce the input size appreciably in a reasonable number of
-iterations in cases where ddmin fails to converge after several days.
+\ref{sec:intro}.  We have a selection preprocessed inputs of
+approximately this size from Mozilla, MySQL, and Apache which induce
+documented crashes in the ROSE compiler framework \citep{rose} that we
+will attempt use for this evaluation.  This may not be possible if we
+are not able to cover enough of the C++ language to generate all of
+the constraints for these rather complex files.  If this is the case,
+we will generate larger C files with complex dependencies between
+structures using composition instead of inheritance.  This will
+capture the spirit of the underlying problem without requiring the
+full machinery to handle all of C++.  Our goal with these inputs will
+be to show that our algorithm can reduce the input size appreciably in
+a reasonable number of iterations in cases where ddmin fails to
+converge after several days.
 
 \section{Team Members}
 \begin{itemize}
