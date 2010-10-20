@@ -45,12 +45,12 @@ algorithm is actually designed to tolerate many failures of this form. On the
 other hand, there must be at least some successes in order to reduce the input
 size by any appreciable factor. In the presence of numerous internal
 dependencies, it is likely that no viable reductions will ever emerge. Cases
-have been observed \citep{trex} where the Delta Debugging algorithm ran for more than three
-days and was unable to reduce 700kb input files by more than $20 \%$. In these
-situations, the Delta Debugging algorithm only managed to remove whitespace.
-Manual reduction, respecting class hierarchies, was able to reduce these
-test cases to 40kb.  The standard ddmin algorithm was able to further reduce
-these simplified cases.
+have been observed \citep{trex} where the Delta Debugging algorithm ran for more
+than three days and was unable to reduce 700kb input files by more than $20
+\%$. In these situations, the Delta Debugging algorithm only managed to remove
+whitespace.  Manual reduction, respecting class hierarchies, was able to reduce
+these test cases to 40kb.  The standard ddmin algorithm was able to further
+reduce these simplified cases.
 
 This project aims to introduce the simple concept of \emph{dependency} to the
 Delta Debugging algorithm to prune impossible inputs from the search space.
@@ -67,9 +67,10 @@ against inaccuracy in the front-end is inherent to the algorithm and the search
 will continue around improperly captured dependencies.  The resulting algorithm
 will not be in a worse position than the original Delta Debugging algorithm with
 regard to spurious syntax errors.  Our goal is only to reduce the number of
-failures over the baseline of Delta Debugging. This structured approach will
-allow us to effectively explore the space of mostly well-formed input programs
-and introduce reductions unavailable to traditional Delta Debugging.
+\emph{inconsistent configurations} \citep{zeller99} arising due to semantic
+errors over the baseline of Delta Debugging. This structured approach will allow
+us to effectively explore the space of mostly well-formed input programs and
+introduce reductions unavailable to traditional Delta Debugging.
 
 
 \section{Implementation Details}
@@ -223,7 +224,8 @@ There has been some prior work in the area with, perhaps, the one most closely
 related to ours being the Hierarchical Delta Debugging algorithm as proposed by
 \citet{hdd} which works on tree-structured input. However, while
 the algorithm can operate on the AST of a program it is unable to account for
-dependencies arising from non-ancestral nodes due to declarations.
+dependencies arising from non-ancestral nodes due to declarations. Specifically,
+it accounts for \emph{syntactic} dependencies, but not \emph{semantic} ones.
 
 There have been other extensions to the delta debugging algorithm as well, with
 variants such as Artho's Iterative Delta Debugging \citep{idd} directing a search
@@ -235,10 +237,14 @@ formulas.
 Our constraint generation step can also be seen as a special case of program
 slicing \citep{weiser81} \citep{tip94}. These techniques ease debugging by
 removing irrelevant portions of a failing program and can be done either
-statically or dynamically (with respect to a concrete run) \citep{agrawal90}. One
-strength of our technique is that in combining program slicing with a technique
-as failure resistant as delta-debugging we do not need to be as precise in our
-analysis.
+statically or dynamically (with respect to a concrete run)
+\citep{agrawal90}. There is also ongoing work in the area of \emph{executable}
+program slices where the goal is to slice a program and output source code
+that can still be compiled and run \citep{horwitz10}. One strength of our
+technique is that in combining program slicing with a technique as failure
+resistant as delta-debugging we do not need to be as precise in our
+analysis. Additionally, in cases where we are testing a compiler we can be much
+more aggressive than is possible with slicing.
 
 
 \section{Future Work}
