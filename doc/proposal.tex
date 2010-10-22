@@ -107,10 +107,13 @@ dependencies.
   which most quickly isolates the failure-inducing code until a minimally
   failing input has been found.  Every time a construct is removed, anything
   which depends on it is also (transitively) removed.  Beyond removal, we may
-  also investigate more general transformations of constructs.
+  also investigate more general transformations of constructs (see section
+  \ref{subsec:transform} for details).
 %alc - Should we be more specific? this sentance might be overly vague to
 %      someone who didn't know what we had in mind? Maybe we could say:
 %      "... also investigate expression replacement and other more general ..."
+
+% sss - added future reference.
 
   We will use a Datalog or Prolog implementation to compute the transitive
   closure of removed constructs based on our generated dependency constraints.
@@ -142,6 +145,7 @@ segmentation literature \citep{nc} in order to reduce the occurence of
 drastic changes (eg., removing a base class on which all classes may depend).
 
 \subsection{Transformations}
+\label{subsec:transform}
 We may be able to do better than simply removing program constructs if we have
 dependency (or possibly even richer) information.  Some possibilities are:
 \begin{itemize}
@@ -152,6 +156,7 @@ dependency (or possibly even richer) information.  Some possibilities are:
 \item Struct, class, or union \emph{field removal}.
 \item Remove template specializations.
 %alc - I don't get this last one, but it seems overly ambitious
+% sss - read up on template specializations.
 \end{itemize}
 
 Removing entire entities is simple in this framework as we will record the
@@ -166,6 +171,11 @@ example could be replacing a complex conditional in a loop with a simple
 constant.
 %alc - we mention nothing about preserving the return type of the function
 %      ... won't this be ABSOTIVELY necessary?
+
+%sss - only need to worry about preserving type if you're returning a value. in
+% C if you return from a function by falling through the last } (without
+% encountering a return statement) an undefined value will be returned, but it's
+% still valid C. try running a few sample programs.
 
 Type simplification would be difficult to achieve automatically and will
 probably be beyond the scope of the current project.
