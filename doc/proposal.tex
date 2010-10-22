@@ -85,7 +85,7 @@ dependencies.
   output structural constraints over C/C++ code.  This approach would generate
   syntactic and semantic dependency constraints over \emph{source ranges}.  After
   some minor processing, Clang provides precise character-level source ranges for
-  all constructs in which we are interested
+  all constructs in which we are interested.
 
 \item The constraint in which we have a primary interest is \emph{dependsOn(X,
   Y)} (i.e., construct X depends on construct Y).  We have identified various
@@ -108,12 +108,15 @@ dependencies.
   failing input has been found.  Every time a construct is removed, anything
   which depends on it is also (transitively) removed.  Beyond removal, we may
   also investigate more general transformations of constructs.
+%alc - Should we be more specific? this sentance might be overly vague to
+%      someone who didn't know what we had in mind? Maybe we could say:
+%      "... also investigate expression replacement and other more general ..."
 
   We will use a Datalog or Prolog implementation to compute the transitive
   closure of removed constructs based on our generated dependency constraints.
   With some postprocessing, we can reconstruct the remaining program source
-  ranges and follow the standard Delta Debugging algorithm in running the
-  debuggee on the new input and observing either failures or successes.
+  ranges and follow the standard Delta Debugging algorithm by running the
+  checker on the newly constructed program and observing the results.
 
 \end{itemize}
 
@@ -121,44 +124,48 @@ dependencies.
 The search strategy can be approached using either common approach:
 \begin{itemize}
 \item \emph{Top-down}: Start by removing top-level declarations (and things that
-  require them). Start removing smaller entities (statements) once no more
-  progress can be made there, iterating as necessary.
-\item \emph{Bottom-up}: Start removing non-declaration statements aggressively
-  as in the search strategy from Zeller \citet{dd}. After no progress can be
-  made, start removing larger constructs by working at the next higher stratum.
+  require them). Continue by removing smaller entities (statements) only once no
+  more progress can be made at the top level, iterating as necessary.
+\item \emph{Bottom-up}: Start by aggresively removing non-declaration statements
+  as in the search strategy from Zeller \citet{dd}. Once no further progress can
+  be made, begin removing larger constructs by working at the next higher
+  stratum.
 \end{itemize}
 It is not yet clear which method is superior, but the proposed dependency
 modifications should make the bottom-up search strategy a more attractive option
 than it is in a more traditional, dependency-unaware Delta Debugging.
 
-Delta Debugging typically starts off with a standard binary search. This is
-possible under a structured framework, too. To that end we may consider some
-heuristics and approximate techniques from graph cutting and image segmentation
-literature \citep{nc} in order to keep us from making sweeping changes (eg.,
-removing a base class on which all classes may depend).
+Delta Debugging typically starts off with a standard binary search. As this is
+possible under a structured framework as well, we may consider introducing
+heuristics and approximation techniques from graph cutting and image
+segmentation literature \citep{nc} in order to reduce the occurence of
+drastic changes (eg., removing a base class on which all classes may depend).
 
 \subsection{Transformations}
 We may be able to do better than simply removing program constructs if we have
 dependency (or possibly even richer) information.  Some possibilities are:
 \begin{itemize}
-\item Type simplification.  We could replace complex class types with simple
-  primitives.
-\item Function body removal, essentially replacing a function definition with a
-  declaration.
-\item Remove a struct, class, or union field.
+\item Using \emph{type simplification} to replace complex class types with
+  simple primitives.
+\item \emph{Function body removal}, wherein the function definition is replaced
+  with a declaration.
+\item Struct, class, or union \emph{field removal}.
 \item Remove template specializations.
+%alc - I don't get this last one, but it seems overly ambitious
 \end{itemize}
 
-Removing entire entities is simple in this framework, since we will record the
+Removing entire entities is simple in this framework as we will record the
 source ranges of all constructs.  Removing function bodies could be more
 difficult because just removing the curly braces of the body and everything
 in-between is insufficient; the body needs to be replaced by a semicolon to
-produce a syntactically valid declaration in C.  Something like this is possible
-with some extra semantic annotations within the source ranges. We could specify
-a list of substitutions for some ranges that would just be empty for most
+produce a syntactically valid declaration in C. These tasks would require
+additional semantic annotations within the source ranges. We could specify a
+list of substitutions for some ranges that would just be empty for most
 constructs; for a function body the list could contain a semicolon.  A related
 example could be replacing a complex conditional in a loop with a simple
 constant.
+%alc - we mention nothing about preserving the return type of the function
+%      ... won't this be ABSOTIVELY necessary?
 
 Type simplification would be difficult to achieve automatically and will
 probably be beyond the scope of the current project.
@@ -204,7 +211,7 @@ that we will be trying to compile.
 Our deliverables schedule is dictated in part by the program flow and has the
 benefit of front-loading most of the code-intensive segments. The project is
 viewed as consisting of three main components: Constraint Generation (budget: 4
-of our 7 weeks), Querying Framework (budget: 2 weeks), and the Testing Platform
+of the 7 weeks), Querying Framework (budget: 2 weeks), and the Testing Platform
 that unifies them (budget: 1 week). While optimistic, this schedule should
 provide enough leniency that overruns should be unlikely.  \\ \\
 \begin{tabular}{|l|l|l|}
