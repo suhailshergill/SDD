@@ -164,31 +164,34 @@ Type simplification would be difficult to achieve automatically and will
 probably be beyond the scope of the current project.
 
 \section{Evaluation}
-Our evaluation will proceed in two stages.  First, we will compare the
-number of iterations required to find a minimal input by our algorithm
-and the ddmin algorithm of \citeauthor{dd}.  The final output of our
-algorithm may be slightly larger as we will not be shortening variable
-names or explicitly discarding whitespace.  We will ensure that our
-outputs are similarly semantically minimal.  We will perform these tests
-on C-based test cases where ddmin is known to reduce the input size
-appreciably.
+Our evaluation will proceed in two stages.  First, we will compare the number of
+iterations required to find a minimal input by our algorithm and the ddmin
+algorithm of \citeauthor{dd}.  The final output of our algorithm may be slightly
+larger as we will not be shortening variable names or explicitly discarding
+whitespace.  In order to ensure that the results we get are comparable we will
+consider running ddmin at the level of individual lines (as opposed to
+characters). We will perform these tests on C-based test cases where ddmin is
+known to reduce the input size appreciably.
 
-Next, we will examine larger test cases with complex internal
-dependencies for which ddmin is unsuitable.  Ideally, we could do this
-using the original 700kb input file discussed in section
-\ref{sec:intro}.  We have a selection preprocessed inputs of
-approximately this size from Mozilla, MySQL, and Apache which induce
-documented crashes in the ROSE compiler framework \citep{rose} that we
-will attempt use for this evaluation.  This may not be possible if we
-are not able to cover enough of the C++ language to generate all of
-the constraints for these rather complex files.  If this is the case,
-we will generate larger C files with complex dependencies between
-structures using composition instead of inheritance.  This will
-capture the spirit of the underlying problem without requiring the
-full machinery to handle all of C++.  Our goal with these inputs will
-be to show that our algorithm can reduce the input size appreciably in
-a reasonable number of iterations in cases where ddmin fails to
-converge after several days.
+Next, we will examine larger test cases with complex internal dependencies for
+which ddmin is unsuitable.  Ideally, we could do this using the original 700kb
+input file discussed in section \ref{sec:intro}.  We have a selection of
+preprocessed inputs of approximately this size from Mozilla, MySQL, and Apache
+which induce documented crashes in the ROSE compiler framework \citep{rose} that
+we will attempt use for this evaluation.  This may not be possible if we are not
+able to cover enough of the C++ language to generate all of the constraints for
+these rather complex files.  If this is the case, we will generate larger C
+files with complex dependencies between structures using composition instead of
+inheritance.  This will capture the spirit of the underlying problem without
+requiring the full machinery to handle all of C++.  Our goal with these inputs
+will be to show that our algorithm can reduce the input size appreciably in a
+reasonable number of iterations in cases where ddmin fails to converge after
+several days. We will also attempt to compare these results against the
+hierarchical delta-debugging algorithm of \citeauthor{hdd} (subject to being
+able to run their code).
+
+For both stages of our evaluation our test cases would consist of source code
+that we will be trying to compile.
 
 \section{Team Members}
 \begin{itemize}
