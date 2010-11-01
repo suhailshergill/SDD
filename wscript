@@ -29,7 +29,7 @@ def configure(conf):
     conf.env['LLVMLIBDIR'] = llvm_lib
 
 def build(bld):
-    bld.recurse('doc')
+    #bld.recurse('doc')
     cgen = bld.new_task_gen(
         features = 'cxx cprogram',
         source = [ 'src/Driver.cpp',

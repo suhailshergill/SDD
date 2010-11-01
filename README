@@ -8,7 +8,7 @@ For each compile, run
 
 
 To run the resulting generator:
-  ./bin/GenerateConstraints -plugin gen-constraints /path/to/file
+  ./bin/GenerateConstraints -I/usr/lib/gcc/x86_64-redhat-linux/4.1.2/include -plugin gen-constraints /path/to/file
 
 We can add arguments using:
   -plugin-arg-gen-constraints XXXXXXX
