@@ -63,6 +63,8 @@ namespace
 
     virtual void HandleTopLevelDecl(DeclGroupRef DG)
     {
+			std::cerr << "IN\tHandleTopLevelDecl\n";
+
       for (DeclGroupRef::iterator i = DG.begin(), e = DG.end(); i != e; ++i)
       {
         Decl *D = *i;
@@ -74,10 +76,15 @@ namespace
         if(declToLogicVarMap.find(D) == declToLogicVarMap.end())
           Visit(D);
       }
+
+			os.flush();
+			std::cerr << "OUT\tHandleTopLevelDecl\n";
     }
 
     virtual void HandleTagDeclDefinition(TagDecl *D)
     {
+			std::cerr << "IN\tHandleTagDeclDefinition\n";
+
       // Don't generate constraints for decls that are not in the main
       // file, since we can't remove those anyway.
       SourceRange sr = D->getSourceRange();
@@ -85,10 +92,15 @@ namespace
 
       if(declToLogicVarMap.find(D) == declToLogicVarMap.end())
         Visit(D);
+
+			os.flush();
+			std::cerr << "OUT\tHandleTagDeclDefinition\n";
     }
 
     void VisitTypedefDecl(TypedefDecl *D)
    {
+			std::cerr << "IN\tVisitTypedefDecl\n";
+
       std::string var = gensymDecl(D);
       os << "# ";
       D->print(os);
@@ -103,10 +115,57 @@ namespace
       printDependency(var, dependsOnDecl);
 
       os << "\n";
+
+			os.flush();
+			std::cerr << "OUT\tVisitTypedefDecl\n";
     }
+
+		// FORMAT:
+		// E := c(e1, e2, ... eN)
+		// E->calleeDecl = c
+		// CallExpr::arg_iterator
+		// E->arg_begin  = e1
+		// E->arg_end    = eN
+		void VisitCallExpr(CallExpr *E)
+		{
+			std::cerr << "IN\tVisitCallExpr\n";
+
+			Decl * calleeDecl = E->getCalleeDecl();
+			calleeDecl->print(os);
+			// introduce dependency (E -> calleeDecl)
+
+			for (CallExpr::arg_iterator Arg = E->arg_begin(), ArgEnd = E->arg_end(); Arg != ArgEnd; ++Arg)
+			{
+				//introduce dependency (E -> Arg)
+				
+			}
+
+			os.flush();
+			std::cerr << "OUT\tVisitCallExpr\n";
+		}
+
+		// FORMAT:
+		// E := c(s)
+		// E->getCastKind = c
+		// E->getSubExpr 	= s
+		void VisitCastExpr(CastExpr *E)
+		{
+			std::cerr << "IN\tVisitCastExpr\n";
+
+			CastKind castKind = E->getCastKind();
+			// introduce dependency (E -> castKind)
+
+			Expr * subExpr = E->getSubExpr();
+			// introduce dependency (E -> subExpr)
+
+			os.flush();
+			std::cerr << "OUT\tVisitCastExpr\n";
+		}
 
     void VisitEnumDecl(EnumDecl *D)
     {
+			std::cerr << "IN\tVisitEnumDecl\n";
+
       std::string var = gensymDecl(D);
       os << "# enum " << D->getQualifiedNameAsString() << "\n";
 
@@ -115,15 +174,23 @@ namespace
       printSourceRange(var, oRange);
       // No dependencies
       os << "\n";
+			
+			os.flush();
+			std::cerr << "OUT\tVisitEnumDecl\n";
     }
 
     void VisitRecordDecl(RecordDecl *D)
     {
+			std::cerr << "IN\tVisitRecordDecl\n";
 
+			os.flush();
+			std::cerr << "OUT\tVisitRecordDecl\n";
     }
 
     void VisitVarDecl(VarDecl *D)
     {
+			std::cerr << "IN\tVisitVarDecl\n";
+
       // FIXME: Need to descend into the initializer to generate
       // dependencies on variables referenced there (the initializer
       // itself should depend on them, instead of the entire decl).
@@ -143,11 +210,17 @@ namespace
         printDependency(var, varType);
 
       os << "\n";
+
+			os.flush();
+			std::cerr << "OUT\tVisitVarDecl\n";
     }
 
     void VisitFunctionDecl(FunctionDecl *D)
     {
+			std::cerr << "IN\tVisitFunctionDecl\n";
 
+			os.flush();
+			std::cerr << "OUT\tVisitFunctionDecl\n";
     }
 
   private:
@@ -175,11 +248,13 @@ namespace
       os << "sourceRange(" << logVar << ","
          << oRange.first << ","
          << oRange.second << ").\n";
+			os.flush();
     }
 
     void printDeclaration(const std::string & logVar)
     {
       os << "isDeclaration(" << logVar << ").\n";
+			os.flush();
     }
 
     void printDependency(const std::string & logVar,
@@ -188,11 +263,12 @@ namespace
       if(!dependency.empty())
         os << "dependsOn(" << logVar << ","
            << dependency << ").\n";
+			os.flush();
     }
 
     bool isInMainFile(SourceRange sr)
     {
-      return SM->isFromMainFile(sr.getBegin());
+      return true; //SM->isFromMainFile(sr.getBegin());
     }
 
   private:

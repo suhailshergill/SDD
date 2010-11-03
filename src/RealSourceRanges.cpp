@@ -1,3 +1,9 @@
+#include <stdint.h>
+#include <map>
+#include <fstream>
+#include <sstream>
+#include <iostream>
+
 #include <clang/AST/AST.h>
 #include <clang/AST/DeclVisitor.h>
 #include <clang/AST/TypeLoc.h>
@@ -64,14 +70,14 @@ namespace
     const char * tokenStart = sl.getCharacterData();
     size_t startingIndex = tokenStart - bufferStart;
 
-    // Move to the spot before the token, in case it begins with keyword[0]
-    size_t currentIndex = startingIndex - 1;
+    size_t currentIndex = startingIndex;
 
-    while(currentIndex >= 0)
+    while(--currentIndex >= 0)
     {
       while(bufferStart[currentIndex] != keyword[0])
         --currentIndex;
       std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
+
       if(maybeKeyword == keyword)
         return currentIndex;
     }
@@ -112,20 +118,10 @@ namespace
 
     OffsetRange VisitTypedefDecl(TypedefDecl *D)
     {
-      TypeSourceInfo * TSI = D->getTypeSourceInfo();
-      TypeLoc TL = TSI->getTypeLoc();
-      TypedefTypeLoc * TTL = cast<TypedefTypeLoc>(&TL);
-
-      // typedef foo bar;
-      // Scan back from foo until the index of 't' in typedef is found
-      // Can't compute it directly because there may be more than one
-      // unit of whitespace between typedef and foo.
-      // Scan forward from the 'b' in bar until ';'.
-      FullSourceLoc definedTypeBegin(D->getLocation(), SM);
-      FullSourceLoc baseTypeBegin(TTL->getNameLoc(), SM);
-
-      size_t typedefBegin = scanBackTo("typedef", baseTypeBegin);
-      size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
+			FullSourceLoc definedTypeBegin(D->getLocation(), SM);
+			
+			size_t typedefBegin = scanBackTo("typedef", definedTypeBegin);
+			size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
 
       return std::make_pair(typedefBegin, typedefEnd);
     }
