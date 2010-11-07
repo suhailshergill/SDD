@@ -70,7 +70,7 @@ namespace
     const char * tokenStart = sl.getCharacterData();
     size_t startingIndex = tokenStart - bufferStart;
 
-    size_t currentIndex = startingIndex;
+    size_t currentIndex = startingIndex + 1;
 
     while(--currentIndex >= 0)
     {
