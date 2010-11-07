@@ -102,7 +102,7 @@ namespace
         ++currentIndex;
       std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
       if(maybeKeyword == keyword)
-        return currentIndex;
+        return currentIndex + keyword.length();
     }
 
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
