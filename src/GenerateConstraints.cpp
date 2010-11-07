@@ -268,7 +268,8 @@ namespace
 
     bool isInMainFile(SourceRange sr)
     {
-      return true; //SM->isFromMainFile(sr.getBegin());
+      FullSourceLoc sl(sr.getBegin(), *SM);
+      return !sl.isInSystemHeader(); //SM->isFromMainFile(sr.getBegin());
     }
 
   private:
