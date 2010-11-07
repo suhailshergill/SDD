@@ -243,11 +243,12 @@ namespace
       return it->second;
     }
 
-    void printSourceRange(const std::string & logVar, const OffsetRange & oRange)
+    void printSourceRange(const std::string & logVar, OffsetRange & oRange)
     {
       os << "sourceRange(" << logVar << ","
-         << oRange.first << ","
-         << oRange.second << ").\n";
+         << oRange.getBegin() << ","
+         << oRange.getEnd() << ","
+	 << oRange.getFileName() <<").\n";
 			os.flush();
     }
 

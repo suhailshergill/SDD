@@ -123,7 +123,7 @@ namespace
 			size_t typedefBegin = scanBackTo("typedef", definedTypeBegin);
 			size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
 
-      return std::make_pair(typedefBegin, typedefEnd);
+			return OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier());
     }
 
     OffsetRange VisitEnumDecl(EnumDecl *D)
@@ -132,7 +132,7 @@ namespace
       SourceLocation sBegin = SM.getSpellingLoc(sr.getBegin());
       SourceLocation sEnd = SM.getSpellingLoc(sr.getEnd());
 
-      return std::make_pair(SM.getFileOffset(sBegin), SM.getFileOffset(sEnd));
+      return OffsetRange(SM.getFileOffset(sBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin));
     }
 
     OffsetRange VisitVarDecl(VarDecl *D)
@@ -144,7 +144,7 @@ namespace
       // SourceRange qr = D->DeclaratorDecl::getQualifierRange();
       SourceLocation qBegin = SM.getSpellingLoc(D->getTypeSpecStartLoc());//qr.getBegin());
 
-      return std::make_pair(SM.getFileOffset(qBegin), SM.getFileOffset(sEnd));
+      return OffsetRange(SM.getFileOffset(qBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin));
     }
 
     OffsetRange VisitDecl(Decl *D)
