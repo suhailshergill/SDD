@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <map>
+#include <set>
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -21,6 +22,11 @@ using namespace clang;
 
 namespace
 {
+	inline void _debug(std::string s)
+	{
+		std::cerr << s;
+	}
+
   class DeclForTypeVisitor : public TypeVisitor<DeclForTypeVisitor, Decl*>
   {
   public:
@@ -39,6 +45,172 @@ namespace
       return NULL;
     }
   };
+
+	typedef std::string String;
+	typedef std::map<Decl *, std::string> VarMap;
+	typedef std::pair<Decl *, std::string> VarPair;
+	typedef std::set<std::string> SymbolSet;
+
+	class ConstraintVisitor : public StmtVisitor<ConstraintVisitor>
+	{
+	public:
+		ConstraintVisitor(llvm::raw_fd_ostream & stream, VarMap globalMap, SourceManager * mgr)
+		:os(stream),
+		 scopeMap(globalMap),
+		 SM(mgr),
+		 localSymbols(),
+		 globalSymbols(),
+		 SYM_NUM(0)
+		{
+		}
+
+		unsigned int SYM_NUM;
+
+		void AddDecl(Decl * D, String sym)
+		{
+			std::ostringstream osstream;
+			osstream << sym << "_" << SYM_NUM;
+			sym = osstream.str();
+
+			SYM_NUM++;
+
+			VarPair P(D, sym);
+
+			scopeMap.insert(P);
+
+			globalSymbols.insert(sym);
+			localSymbols.insert(sym);
+		}
+
+		void VisitCompoundStmt(CompoundStmt * S)
+		{
+			_debug("IN\tVisitCompountStmt\n");
+
+			for (CompoundStmt::body_iterator CS = S->body_begin(), CSEnd = S->body_end(); CS != CSEnd; ++CS)
+			{
+				localSymbols.clear();
+				
+				(* CS)->dump(os, *SM);
+
+				_debug("\nSTMT\n");
+
+				Visit(*CS);
+
+				for (SymbolSet::iterator it = localSymbols.begin(); it != localSymbols.end(); it++)
+				{
+					_debug("Uses: ");
+					_debug(*it);
+					_debug("\n");
+				}
+
+				_debug("\n");
+			}
+
+			_debug("OUT\tVisitCompountStmt\n");
+		}
+
+		void VisitCXXCatchStmt(CXXCatchStmt * S)
+		{
+			_debug("IN\tVisitCXXCatchStmt\n");
+			//Visit(S->getExceptionDecl());
+			//Visit(S->getHandlerBlock());
+			_debug("OUT\tVisitCXXCatchStmt\n");
+		}
+
+		void VisitCXXTryStmt(CXXTryStmt * S)
+		{
+			_debug("IN\tVisitCXXTryStmt\n");
+			//Visit(S->getTryBlock());
+			for (unsigned int idx = 0; idx < S->getNumHandlers(); idx++)
+				//Visit(S->getHandler(idx));
+			_debug("OUT\tVisitCXXTryStmt\n");
+		}
+
+		void VisitDeclStmt(DeclStmt * S)
+		{
+			_debug("IN\tVisitDeclStmt\n");
+
+			if (S->isSingleDecl())
+			{
+				AddDecl(S->getSingleDecl(), "TEST_D");
+			}
+			else
+			{
+				DeclGroupRef DGR = S->getDeclGroup();
+
+				if (DGR.isSingleDecl())
+				{
+					AddDecl(DGR.getSingleDecl(), "TEST_DGR_D");
+				}
+				else
+				{
+					DeclGroup DG = DGR.getDeclGroup();
+
+					for (unsigned int i = 0; i < DG.size(); i++)
+					{
+						AddDecl(DG[i], "TEST_DGR_DG_D");
+					}
+				}
+			}
+
+			_debug("OUT\tVisitDeclStmt\n");
+		}
+
+		void VisitDoStmt(DoStmt * S)
+		{
+			_debug("IN\tVisitDoStmt\n");
+			Visit(S->getBody());
+			Visit(S->getCond());
+			_debug("OUT\tVisitDoStmt\n");
+		}
+
+		void VisitArraySubscriptExpr(ArraySubscriptExpr * E)
+		{
+			_debug("IN\tVisitArraySubscriptExpr\n");
+			Visit(E->getLHS());
+			Visit(E->getRHS());
+			_debug("OUT\tVisitArraySubscriptExpr\n");
+		}
+
+		void VisitBinaryOperator(BinaryOperator * O)
+		{
+			_debug("IN\tVisitBinaryOperator\n");
+			Visit(O->getLHS());
+			Visit(O->getRHS());
+			_debug("OUT\tVisitBinaryOperator\n");
+		}
+
+		void VisitBlockDeclRefExpr(BlockDeclRefExpr * E)
+		{
+			_debug("IN\tBlockDeclRefExpr\n");
+			//Visit(E->getDecl());
+			//Visit(E->getCopyConstructorExpr());
+			_debug("OUT\tBlockDeclRefExpr\n");
+		}
+
+		void VisitDeclRefExpr(DeclRefExpr * E)
+		{
+			_debug("IN\tVisitDeclRefExpr\n");
+
+			VarMap::const_iterator it = scopeMap.find(E->getDecl());
+			String sym = it->second;
+
+			_debug("REFERENCING ");
+			_debug(sym);
+			_debug("\n");
+
+			globalSymbols.insert(sym);
+			localSymbols.insert(sym);
+
+			_debug("OUT\tVisitDeclRefExpr\n");
+		}
+
+	private:
+    VarMap scopeMap;
+    llvm::raw_fd_ostream & os;
+    SourceManager * SM;
+		SymbolSet globalSymbols, localSymbols;
+	};
 
   class ConstraintGenerator : public ASTConsumer,
                               public DeclVisitor<ConstraintGenerator>
@@ -154,7 +326,6 @@ namespace
 
 			CastKind castKind = E->getCastKind();
 			// introduce dependency (E -> castKind)
-
 			Expr * subExpr = E->getSubExpr();
 			// introduce dependency (E -> subExpr)
 
@@ -218,6 +389,12 @@ namespace
     void VisitFunctionDecl(FunctionDecl *D)
     {
 			std::cerr << "IN\tVisitFunctionDecl\n";
+
+			ConstraintVisitor c(os, declToLogicVarMap, SM);
+			if (D->hasBody())
+			{
+				c.Visit(D->getBody());
+			}
 
 			os.flush();
 			std::cerr << "OUT\tVisitFunctionDecl\n";
