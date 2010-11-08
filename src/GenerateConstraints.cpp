@@ -168,8 +168,8 @@ namespace
 			std::cerr << "IN\tVisitEnumDecl\n";
 
       std::string var = gensymDecl(D);
-      printDeclKindAndName(D, D->getKindName());      
-
+      printDeclKindAndName(D);      
+      
       printDeclaration(var);
       OffsetRange oRange = getRealSourceRange(*SM, D);
       printSourceRange(var, oRange);
@@ -255,8 +255,9 @@ namespace
 
     void printDeclKindAndName(NamedDecl *D, const char* kindName="")
     {
-      const char* nameOfKind = (strlen(kindName) == 0) ? D->getDeclKindName() : kindName;
-      os << "# " << nameOfKind << " " << D->getQualifiedNameAsString() << "\n";
+      std::string nameOfKind(D->getDeclKindName());
+      nameOfKind[0] = tolower(nameOfKind[0]);
+      os << "# " << ((strlen(kindName) == 0) ? nameOfKind : kindName) << " " << D->getQualifiedNameAsString() << "\n";
     }    
 
     void printDeclaration(const std::string & logVar)
