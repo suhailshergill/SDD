@@ -25,7 +25,7 @@ namespace
 {
 	inline void _debug(std::string s)
 	{
-		std::cerr << s;
+		//std::cerr << s;
 	}
 
   class DeclForTypeVisitor : public TypeVisitor<DeclForTypeVisitor, Decl*>
@@ -59,13 +59,15 @@ namespace
 		:os(stream),
 		 scopeMap(globalMap),
 		 SM(mgr),
-		 localSymbols(),
-		 globalSymbols(),
-		 SYM_NUM(0)
+		 lineSymbols(),
+		 scopeSymbols(),
+		 SYM_NUM(0),
+		 INCEPTION_POINT(0)
 		{
 		}
 
 		unsigned int SYM_NUM;
+		unsigned int INCEPTION_POINT;
 
 		void AddDecl(Decl * D, String sym)
 		{
@@ -79,114 +81,68 @@ namespace
 
 			scopeMap.insert(P);
 
-			globalSymbols.insert(sym);
-			localSymbols.insert(sym);
+			scopeSymbols.insert(sym);
+			lineSymbols.insert(sym);
+		}
+
+		void DumpSymbols(SymbolSet set, String description)
+		{
+			for (unsigned int LVL = 0; LVL < INCEPTION_POINT; LVL++)
+				std::cerr << "\t";
+
+			std::cerr << description << "\tREFS\t{";
+
+			for (SymbolSet::iterator it = set.begin(); it != set.end(); it++)
+			{
+				if (it != set.begin()) std::cerr << ", ";
+				std::cerr << *it;
+			}
+
+			std::cerr << "}\n";
+		}
+
+		void VisitStmt(Stmt * S)
+		{
+			for (Stmt::child_iterator I = S->child_begin(), E = S->child_end(); I != E; ++I)
+			{
+				if (*I) Visit(*I);
+			}
 		}
 
 		void VisitCompoundStmt(CompoundStmt * S)
 		{
 			_debug("IN\tVisitCompountStmt\n");
 
+			INCEPTION_POINT++;
+			SymbolSet prevScopeSymbols = scopeSymbols;
+
 			for (CompoundStmt::body_iterator CS = S->body_begin(), CSEnd = S->body_end(); CS != CSEnd; ++CS)
 			{
-				localSymbols.clear();
+				lineSymbols.clear();
 				
-				(* CS)->dump(os, *SM);
-
-				_debug("\nSTMT\n");
-
 				Visit(*CS);
-
-				for (SymbolSet::iterator it = localSymbols.begin(); it != localSymbols.end(); it++)
-				{
-					_debug("Uses: ");
-					_debug(*it);
-					_debug("\n");
-				}
-
-				_debug("\n");
+				
+				DumpSymbols(lineSymbols, "STMT");
 			}
 
+			DumpSymbols(scopeSymbols, "SCOPE");
+
+			INCEPTION_POINT--;
+			scopeSymbols = prevScopeSymbols;
+
 			_debug("OUT\tVisitCompountStmt\n");
-		}
-
-		void VisitCXXCatchStmt(CXXCatchStmt * S)
-		{
-			_debug("IN\tVisitCXXCatchStmt\n");
-			//Visit(S->getExceptionDecl());
-			//Visit(S->getHandlerBlock());
-			_debug("OUT\tVisitCXXCatchStmt\n");
-		}
-
-		void VisitCXXTryStmt(CXXTryStmt * S)
-		{
-			_debug("IN\tVisitCXXTryStmt\n");
-			//Visit(S->getTryBlock());
-			for (unsigned int idx = 0; idx < S->getNumHandlers(); idx++)
-				//Visit(S->getHandler(idx));
-			_debug("OUT\tVisitCXXTryStmt\n");
 		}
 
 		void VisitDeclStmt(DeclStmt * S)
 		{
 			_debug("IN\tVisitDeclStmt\n");
 
-			if (S->isSingleDecl())
+			for (DeclStmt::decl_iterator I = S->decl_begin(), E = S->decl_end(); I != E; ++I)
 			{
-				AddDecl(S->getSingleDecl(), "TEST_D");
-			}
-			else
-			{
-				DeclGroupRef DGR = S->getDeclGroup();
-
-				if (DGR.isSingleDecl())
-				{
-					AddDecl(DGR.getSingleDecl(), "TEST_DGR_D");
-				}
-				else
-				{
-					DeclGroup DG = DGR.getDeclGroup();
-
-					for (unsigned int i = 0; i < DG.size(); i++)
-					{
-						AddDecl(DG[i], "TEST_DGR_DG_D");
-					}
-				}
+				AddDecl(*I, "TEST_D");
 			}
 
 			_debug("OUT\tVisitDeclStmt\n");
-		}
-
-		void VisitDoStmt(DoStmt * S)
-		{
-			_debug("IN\tVisitDoStmt\n");
-			Visit(S->getBody());
-			Visit(S->getCond());
-			_debug("OUT\tVisitDoStmt\n");
-		}
-
-		void VisitArraySubscriptExpr(ArraySubscriptExpr * E)
-		{
-			_debug("IN\tVisitArraySubscriptExpr\n");
-			Visit(E->getLHS());
-			Visit(E->getRHS());
-			_debug("OUT\tVisitArraySubscriptExpr\n");
-		}
-
-		void VisitBinaryOperator(BinaryOperator * O)
-		{
-			_debug("IN\tVisitBinaryOperator\n");
-			Visit(O->getLHS());
-			Visit(O->getRHS());
-			_debug("OUT\tVisitBinaryOperator\n");
-		}
-
-		void VisitBlockDeclRefExpr(BlockDeclRefExpr * E)
-		{
-			_debug("IN\tBlockDeclRefExpr\n");
-			//Visit(E->getDecl());
-			//Visit(E->getCopyConstructorExpr());
-			_debug("OUT\tBlockDeclRefExpr\n");
 		}
 
 		void VisitDeclRefExpr(DeclRefExpr * E)
@@ -196,12 +152,8 @@ namespace
 			VarMap::const_iterator it = scopeMap.find(E->getDecl());
 			String sym = it->second;
 
-			_debug("REFERENCING ");
-			_debug(sym);
-			_debug("\n");
-
-			globalSymbols.insert(sym);
-			localSymbols.insert(sym);
+			scopeSymbols.insert(sym);
+			lineSymbols.insert(sym);
 
 			_debug("OUT\tVisitDeclRefExpr\n");
 		}
@@ -210,7 +162,7 @@ namespace
     VarMap scopeMap;
     llvm::raw_fd_ostream & os;
     SourceManager * SM;
-		SymbolSet globalSymbols, localSymbols;
+		SymbolSet scopeSymbols, lineSymbols;
 	};
 
   class ConstraintGenerator : public ASTConsumer,
@@ -236,7 +188,7 @@ namespace
 
     virtual void HandleTopLevelDecl(DeclGroupRef DG)
     {
-			std::cerr << "IN\tHandleTopLevelDecl\n";
+			_debug("IN\tHandleTopLevelDecl\n");
 
       for (DeclGroupRef::iterator i = DG.begin(), e = DG.end(); i != e; ++i)
       {
@@ -251,12 +203,12 @@ namespace
       }
 
 			os.flush();
-			std::cerr << "OUT\tHandleTopLevelDecl\n";
+			_debug("OUT\tHandleTopLevelDecl\n");
     }
 
     virtual void HandleTagDeclDefinition(TagDecl *D)
     {
-			std::cerr << "IN\tHandleTagDeclDefinition\n";
+			_debug("IN\tHandleTagDeclDefinition\n");
 
       // Don't generate constraints for decls that are not in the main
       // file, since we can't remove those anyway.
@@ -267,12 +219,12 @@ namespace
         Visit(D);
 
 			os.flush();
-			std::cerr << "OUT\tHandleTagDeclDefinition\n";
+			_debug("OUT\tHandleTagDeclDefinition\n");
     }
 
     void VisitTypedefDecl(TypedefDecl *D)
    {
-			std::cerr << "IN\tVisitTypedefDecl\n";
+			_debug("IN\tVisitTypedefDecl\n");
 
       std::string var = gensymDecl(D);
       // os << "# ";
@@ -291,53 +243,12 @@ namespace
       os << "\n";
 
 			os.flush();
-			std::cerr << "OUT\tVisitTypedefDecl\n";
+			_debug("OUT\tVisitTypedefDecl\n");
     }
-
-		// FORMAT:
-		// E := c(e1, e2, ... eN)
-		// E->calleeDecl = c
-		// CallExpr::arg_iterator
-		// E->arg_begin  = e1
-		// E->arg_end    = eN
-		void VisitCallExpr(CallExpr *E)
-		{
-			std::cerr << "IN\tVisitCallExpr\n";
-
-			Decl * calleeDecl = E->getCalleeDecl();
-			calleeDecl->print(os);
-			// introduce dependency (E -> calleeDecl)
-
-			for (CallExpr::arg_iterator Arg = E->arg_begin(), ArgEnd = E->arg_end(); Arg != ArgEnd; ++Arg)
-			{
-				//introduce dependency (E -> Arg)
-				
-			}
-
-			os.flush();
-			std::cerr << "OUT\tVisitCallExpr\n";
-		}
-
-		// FORMAT:
-		// E := c(s)
-		// E->getCastKind = c
-		// E->getSubExpr 	= s
-		void VisitCastExpr(CastExpr *E)
-		{
-			std::cerr << "IN\tVisitCastExpr\n";
-
-			CastKind castKind = E->getCastKind();
-			// introduce dependency (E -> castKind)
-			Expr * subExpr = E->getSubExpr();
-			// introduce dependency (E -> subExpr)
-
-			os.flush();
-			std::cerr << "OUT\tVisitCastExpr\n";
-		}
 
     void VisitEnumDecl(EnumDecl *D)
     {
-			std::cerr << "IN\tVisitEnumDecl\n";
+			_debug("IN\tVisitEnumDecl\n");
 
       std::string var = gensymDecl(D);
       printDeclKindAndName(D);      
@@ -349,12 +260,12 @@ namespace
       os << "\n";
 			
 			os.flush();
-			std::cerr << "OUT\tVisitEnumDecl\n";
+			_debug("OUT\tVisitEnumDecl\n");
     }
 
     void VisitRecordDecl(RecordDecl *D)
     {
-      std::cerr << "IN\tVisitRecordDecl\n";
+      _debug("IN\tVisitRecordDecl\n");
       printDeclKindAndName(D, D->getKindName());
       std::string var = gensymDecl(D);
       printDeclaration(var);
@@ -374,12 +285,12 @@ namespace
       os << "\n";
       
       os.flush();
-      std::cerr << "OUT\tVisitRecordDecl\n";
+      _debug("OUT\tVisitRecordDecl\n");
     }    
 
     void VisitVarDecl(VarDecl *D)
     {
-			std::cerr << "IN\tVisitVarDecl\n";
+			_debug("IN\tVisitVarDecl\n");
 
       // FIXME: Need to descend into the initializer to generate
       // dependencies on variables referenced there (the initializer
@@ -402,12 +313,12 @@ namespace
       os << "\n";
 
 			os.flush();
-			std::cerr << "OUT\tVisitVarDecl\n";
+			_debug("OUT\tVisitVarDecl\n");
     }
 
     void VisitFunctionDecl(FunctionDecl *D)
     {
-			std::cerr << "IN\tVisitFunctionDecl\n";
+			_debug("IN\tVisitFunctionDecl\n");
 
 			ConstraintVisitor c(os, declToLogicVarMap, SM);
 			if (D->hasBody())
@@ -416,7 +327,7 @@ namespace
 			}
 
 			os.flush();
-			std::cerr << "OUT\tVisitFunctionDecl\n";
+			_debug("OUT\tVisitFunctionDecl\n");
     }
 
   private:
