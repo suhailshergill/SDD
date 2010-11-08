@@ -7,6 +7,7 @@
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/AST.h>
 #include <clang/AST/DeclVisitor.h>
+#include <clang/AST/Decl.h>
 #include <clang/AST/StmtVisitor.h>
 #include <clang/AST/TypeLoc.h>
 #include <clang/AST/TypeVisitor.h>
@@ -182,11 +183,28 @@ namespace
 
     void VisitRecordDecl(RecordDecl *D)
     {
-			std::cerr << "IN\tVisitRecordDecl\n";
+      std::cerr << "IN\tVisitRecordDecl\n";
+      printDeclKindAndName(D, D->getKindName());
+      std::string var = gensymDecl(D);
+      printDeclaration(var);
+      OffsetRange oRange = getRealSourceRange(*SM, D);
+      printSourceRange(var, oRange);
 
-			os.flush();
-			std::cerr << "OUT\tVisitRecordDecl\n";
-    }
+      RecordDecl::field_iterator fIt;      
+      for(fIt = D->field_begin(); fIt != D->field_end(); fIt++)
+	{
+	  // print dependencies
+	  if(fIt->isAnonymousStructOrUnion())
+	    continue;
+	  std::string dependsOnDecl = getDeclarationForType(fIt->getType());
+	  printDependency(var, dependsOnDecl);	  
+	}
+      
+      os << "\n";
+      
+      os.flush();
+      std::cerr << "OUT\tVisitRecordDecl\n";
+    }    
 
     void VisitVarDecl(VarDecl *D)
     {
