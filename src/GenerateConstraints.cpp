@@ -23,9 +23,26 @@ using namespace clang;
 
 namespace
 {
+	typedef std::string String;
+	typedef std::map<Decl *, std::string> VarMap;
+	typedef std::pair<Decl *, std::string> VarPair;
+	typedef std::set<std::string> SymbolSet;
+
 	inline void _debug(std::string s)
 	{
 		//std::cerr << s;
+	}
+
+	unsigned int GUID_COUNT = 0;
+	String getNewGUID()
+	{
+		std::ostringstream oss;
+		oss << "sym" << GUID_COUNT;
+		String newGUID = oss.str();
+
+		GUID_COUNT++;
+
+		return newGUID;
 	}
 
   class DeclForTypeVisitor : public TypeVisitor<DeclForTypeVisitor, Decl*>
@@ -47,11 +64,6 @@ namespace
     }
   };
 
-	typedef std::string String;
-	typedef std::map<Decl *, std::string> VarMap;
-	typedef std::pair<Decl *, std::string> VarPair;
-	typedef std::set<std::string> SymbolSet;
-
 	class ConstraintVisitor : public StmtVisitor<ConstraintVisitor>
 	{
 	public:
@@ -69,20 +81,16 @@ namespace
 		unsigned int SYM_NUM;
 		unsigned int INCEPTION_POINT;
 
-		void AddDecl(Decl * D, String sym)
+		void AddDecl(Decl * D)
 		{
-			std::ostringstream osstream;
-			osstream << sym << "_" << SYM_NUM;
-			sym = osstream.str();
+			String symbol = getNewGUID();
 
-			SYM_NUM++;
-
-			VarPair P(D, sym);
+			VarPair P(D, symbol);
 
 			scopeMap.insert(P);
 
-			scopeSymbols.insert(sym);
-			lineSymbols.insert(sym);
+			scopeSymbols.insert(symbol);
+			lineSymbols.insert(symbol);
 		}
 
 		void DumpSymbols(SymbolSet set, String description)
@@ -138,9 +146,7 @@ namespace
 			_debug("IN\tVisitDeclStmt\n");
 
 			for (DeclStmt::decl_iterator I = S->decl_begin(), E = S->decl_end(); I != E; ++I)
-			{
-				AddDecl(*I, "TEST_D");
-			}
+				AddDecl(*I);
 
 			_debug("OUT\tVisitDeclStmt\n");
 		}
@@ -171,9 +177,6 @@ namespace
   public:
     ConstraintGenerator(llvm::raw_fd_ostream & stream)
     :os(stream),
-     declGensym(0),
-     typeGensym(0),
-     stmtGensym(0),
      astContext(NULL)
     {
     }
@@ -333,10 +336,9 @@ namespace
   private:
     std::string gensymDecl(Decl *D)
     {
-      std::ostringstream ss;
-      ss << "d" << declGensym++;
-      declToLogicVarMap[D] = ss.str();
-      return ss.str();
+			String newGUID = getNewGUID();
+      declToLogicVarMap[D] = newGUID;
+      return newGUID;
     }
 
     std::string getDeclarationForType(QualType qt)
@@ -390,9 +392,6 @@ namespace
   private:
     std::map<Decl*, std::string> declToLogicVarMap;
     llvm::raw_fd_ostream & os;
-    uint64_t declGensym;
-    uint64_t typeGensym;
-    uint64_t stmtGensym;
     ASTContext * astContext;
     SourceManager * SM;
   };
