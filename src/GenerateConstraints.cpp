@@ -8,6 +8,7 @@
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/AST.h>
 #include <clang/AST/DeclVisitor.h>
+#include <clang/AST/Decl.h>
 #include <clang/AST/StmtVisitor.h>
 #include <clang/AST/TypeLoc.h>
 #include <clang/AST/TypeVisitor.h>
@@ -274,9 +275,10 @@ namespace
 			std::cerr << "IN\tVisitTypedefDecl\n";
 
       std::string var = gensymDecl(D);
-      os << "# ";
-      D->print(os);
-      os << "\n";
+      // os << "# ";
+      // D->print(os);
+      // os << "\n";
+      printDeclKindAndName(D);      
 
       printDeclaration(var);
 
@@ -338,8 +340,8 @@ namespace
 			std::cerr << "IN\tVisitEnumDecl\n";
 
       std::string var = gensymDecl(D);
-      os << "# enum " << D->getQualifiedNameAsString() << "\n";
-
+      printDeclKindAndName(D);      
+      
       printDeclaration(var);
       OffsetRange oRange = getRealSourceRange(*SM, D);
       printSourceRange(var, oRange);
@@ -352,11 +354,28 @@ namespace
 
     void VisitRecordDecl(RecordDecl *D)
     {
-			std::cerr << "IN\tVisitRecordDecl\n";
+      std::cerr << "IN\tVisitRecordDecl\n";
+      printDeclKindAndName(D, D->getKindName());
+      std::string var = gensymDecl(D);
+      printDeclaration(var);
+      OffsetRange oRange = getRealSourceRange(*SM, D);
+      printSourceRange(var, oRange);
 
-			os.flush();
-			std::cerr << "OUT\tVisitRecordDecl\n";
-    }
+      RecordDecl::field_iterator fIt;      
+      for(fIt = D->field_begin(); fIt != D->field_end(); fIt++)
+	{
+	  // print dependencies
+	  if(fIt->isAnonymousStructOrUnion())
+	    continue;
+	  std::string dependsOnDecl = getDeclarationForType(fIt->getType());
+	  printDependency(var, dependsOnDecl);	  
+	}
+      
+      os << "\n";
+      
+      os.flush();
+      std::cerr << "OUT\tVisitRecordDecl\n";
+    }    
 
     void VisitVarDecl(VarDecl *D)
     {
@@ -428,6 +447,13 @@ namespace
 	 << oRange.getFileName() <<").\n";
 			os.flush();
     }
+
+    void printDeclKindAndName(NamedDecl *D, const char* kindName="")
+    {
+      std::string nameOfKind(D->getDeclKindName());
+      nameOfKind[0] = tolower(nameOfKind[0]);
+      os << "# " << ((strlen(kindName) == 0) ? nameOfKind : kindName) << " " << D->getQualifiedNameAsString() << "\n";
+    }    
 
     void printDeclaration(const std::string & logVar)
     {

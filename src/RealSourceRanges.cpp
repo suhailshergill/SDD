@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <assert.h>
 
 #include <clang/AST/AST.h>
 #include <clang/AST/DeclVisitor.h>
@@ -70,7 +71,7 @@ namespace
     const char * tokenStart = sl.getCharacterData();
     size_t startingIndex = tokenStart - bufferStart;
 
-    size_t currentIndex = startingIndex;
+    size_t currentIndex = startingIndex + 1;
 
     while(--currentIndex >= 0)
     {
@@ -102,7 +103,7 @@ namespace
         ++currentIndex;
       std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
       if(maybeKeyword == keyword)
-        return currentIndex;
+        return currentIndex + keyword.length();
     }
 
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
@@ -128,12 +129,32 @@ namespace
 
     OffsetRange VisitEnumDecl(EnumDecl *D)
     {
-      SourceRange sr = D->getSourceRange();
-      SourceLocation sBegin = SM.getSpellingLoc(sr.getBegin());
-      SourceLocation sEnd = SM.getSpellingLoc(sr.getEnd());
-
-      return OffsetRange(SM.getFileOffset(sBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin));
+      FullSourceLoc definedTypeBegin(D->getLocation(), SM);
+      
+      size_t typedefBegin = scanBackTo("enum", definedTypeBegin);
+      size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
+      
+      return OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier());
     }
+
+    OffsetRange VisitRecordDecl(RecordDecl *D)
+    {
+      FullSourceLoc definedTypeBegin(D->getLocation(), SM);
+      FullSourceLoc definedTypeEnd(D->getRBraceLoc(), SM);
+      
+      const char* kindName;
+      if (D->isStruct())
+	kindName = "struct";
+      if (D->isUnion())
+	kindName = "union";
+      if (D->isClass())
+	kindName = "class";
+      
+      size_t typedefBegin = scanBackTo(kindName, definedTypeBegin);
+      size_t typedefEnd = scanForwardTo(";", definedTypeEnd);
+      
+      return OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier());
+    }    
 
     OffsetRange VisitVarDecl(VarDecl *D)
     {
