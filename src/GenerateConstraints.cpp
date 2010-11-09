@@ -27,6 +27,7 @@ namespace
 {
 	typedef std::string String;
 	typedef std::map<Decl *, std::string> VarMap;
+	typedef std::map<Stmt *, std::string> StmtMap;
 	typedef std::pair<Decl *, std::string> VarPair;
 	typedef std::set<std::string> SymbolSet;
 
@@ -73,42 +74,57 @@ namespace
 		:os(stream),
 		 scopeMap(globalMap),
 		 SM(mgr),
-		 lineSymbols(),
+		 stmtSymbols(),
 		 scopeSymbols(),
-		 SYM_NUM(0),
 		 INCEPTION_POINT(0)
 		{
 		}
 
-		unsigned int SYM_NUM;
 		unsigned int INCEPTION_POINT;
+
+		String AddStmt(Stmt * S)
+		{
+			String symbol = getNewGUID();
+			stmtMap[S] = symbol;
+			return symbol;
+		}
 
 		void AddDecl(Decl * D)
 		{
 			String symbol = getNewGUID();
+      scopeMap[D] = symbol;
 
 			VarPair P(D, symbol);
 
 			scopeMap.insert(P);
 
 			scopeSymbols.insert(symbol);
-			lineSymbols.insert(symbol);
+			stmtSymbols.insert(symbol);
 		}
 
-		void DumpSymbols(SymbolSet set, String description)
+		void DumpSymbols(Stmt * S, String sym, SymbolSet set)
 		{
-			for (unsigned int LVL = 0; LVL < INCEPTION_POINT; LVL++)
-				std::cerr << "\t";
+      os << "# " << S->getStmtClassName() << "\n";
 
-			std::cerr << description << "\tREFS\t{";
+      os << "isStatement(" << sym << ").\n";
+
+			SourceLocation sStart = S->getLocStart();
+			SourceLocation sEnd   = S->getLocEnd();
+
+			os << "sourceRange(" << sym << ","
+         << SM->getFileOffset(sStart) << ","
+         << SM->getFileOffset(sEnd) << ","
+				 << SM->getBufferName(sStart) << ").\n";
 
 			for (SymbolSet::iterator it = set.begin(); it != set.end(); it++)
 			{
-				if (it != set.begin()) std::cerr << ", ";
-				std::cerr << *it;
+				if (!(it->empty()))
+	        os << "dependsOn(" << sym << "," << (*it) << ").\n";
 			}
 
-			std::cerr << "}\n";
+      os << "\n";
+
+			os.flush();
 		}
 
 		void VisitStmt(Stmt * S)
@@ -125,17 +141,18 @@ namespace
 
 			INCEPTION_POINT++;
 			SymbolSet prevScopeSymbols = scopeSymbols;
+			scopeSymbols.clear();
 
 			for (CompoundStmt::body_iterator CS = S->body_begin(), CSEnd = S->body_end(); CS != CSEnd; ++CS)
 			{
-				lineSymbols.clear();
+				stmtSymbols.clear();
 				
 				Visit(*CS);
 				
-				DumpSymbols(lineSymbols, "STMT");
+				DumpSymbols(*CS, AddStmt(*CS), stmtSymbols);
 			}
 
-			DumpSymbols(scopeSymbols, "SCOPE");
+			DumpSymbols(S, AddStmt(S), scopeSymbols);
 
 			INCEPTION_POINT--;
 			scopeSymbols = prevScopeSymbols;
@@ -161,16 +178,17 @@ namespace
 			String sym = it->second;
 
 			scopeSymbols.insert(sym);
-			lineSymbols.insert(sym);
+			stmtSymbols.insert(sym);
 
 			_debug("OUT\tVisitDeclRefExpr\n");
 		}
 
 	private:
     VarMap scopeMap;
+		StmtMap stmtMap;
     llvm::raw_fd_ostream & os;
     SourceManager * SM;
-		SymbolSet scopeSymbols, lineSymbols;
+		SymbolSet scopeSymbols, stmtSymbols;
 	};
 
   class ConstraintGenerator : public ASTConsumer,
