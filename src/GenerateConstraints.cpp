@@ -19,6 +19,8 @@
 
 #include "RealSourceRanges.hpp"
 
+// #include <typeinfo>
+// #include "/u/s/h/shergill/SW/llvm-root/llvm/tools/clang/test/CodeGenCXX/typeinfo"
 using namespace clang;
 
 namespace
@@ -191,8 +193,9 @@ namespace
 
     virtual void HandleTopLevelDecl(DeclGroupRef DG)
     {
-			_debug("IN\tHandleTopLevelDecl\n");
-
+      _debug("IN\tHandleTopLevelDecl\n");
+      std::cerr << "TOPLEVEL\n";
+      
       for (DeclGroupRef::iterator i = DG.begin(), e = DG.end(); i != e; ++i)
       {
         Decl *D = *i;
@@ -202,7 +205,44 @@ namespace
         if(!isInMainFile(sr)) return;
 
         if(declToLogicVarMap.find(D) == declToLogicVarMap.end())
-          Visit(D);
+	  {
+	    std::cerr << "Visiting\n";
+	    // std::cerr << typeid(*D).name() << std::endl;
+	    if(FunctionTemplateDecl* D1 = dyn_cast< FunctionTemplateDecl >(D))
+	      {
+		VisitFunctionTemplateDecl(D1);
+	      }
+	    switch(D->getKind())
+	      {
+	      case Decl::FunctionTemplate:
+		std::cerr << "FT!\n";
+		break;
+	      case Decl::ClassTemplate:
+		std::cerr << "CT!\n";
+		break;
+	      case Decl::TemplateTemplateParm:
+		std::cerr << "TTP\n";
+		break;
+	      case Decl::TemplateTypeParm:
+		std::cerr << "TemplateTypeParm\n";
+		break;
+	      case Decl::Var:
+		std::cerr << "Var\n";
+		break;
+	      case Decl::Function:
+		std::cerr << "Function\n";
+		break;
+		
+	      default:
+		std::cerr << "shit " << D->getKind() << "\n";
+	      }
+	    
+	    
+	    Visit(D);
+	    std::cerr << "DONE\n";
+	    
+	  }
+	
       }
 
 			os.flush();
@@ -211,8 +251,9 @@ namespace
 
     virtual void HandleTagDeclDefinition(TagDecl *D)
     {
-			_debug("IN\tHandleTagDeclDefinition\n");
-
+      _debug("IN\tHandleTagDeclDefinition\n");
+      std::cerr << "TAGDECL\n";
+      
       // Don't generate constraints for decls that are not in the main
       // file, since we can't remove those anyway.
       SourceRange sr = D->getSourceRange();
@@ -289,7 +330,34 @@ namespace
       
       os.flush();
       _debug("OUT\tVisitRecordDecl\n");
-    }    
+    }
+
+    void VisitCXXRecordDecl(CXXRecordDecl *D)
+    {
+      
+      std::cerr << "HAHA\n";      
+    }
+
+    // void VisitTemplateDecl(TemplateDecl *D)
+    // {
+    //   std::cerr << "HOHO\n";
+    // }
+
+    // void VisitClassTemplateDecl(ClassTemplateDecl *D)
+    // {
+    //   std::cerr << "CT!\n";
+    // }
+    
+    void VisitFunctionTemplateDecl(FunctionTemplateDecl *D)
+    {
+      std::cerr << "HEHE\n";
+    }
+    
+    // void VisitTemplateTemplateParmDecl(TemplateTemplateParmDecl *D)
+    // {
+    //   std::cerr << "HMM\n";
+    // }
+    
 
     void VisitVarDecl(VarDecl *D)
     {
@@ -321,8 +389,15 @@ namespace
 
     void VisitFunctionDecl(FunctionDecl *D)
     {
-			_debug("IN\tVisitFunctionDecl\n");
-
+      _debug("IN\tVisitFunctionDecl\n");
+      FunctionTemplateDecl* FT;
+      FT = D->getDescribedFunctionTemplate();
+      if(FT)
+	Visit(D->getDescribedFunctionTemplate());
+      FT = D->getPrimaryTemplate();
+      if(FT)
+	std::cerr << "create dependency to orig template\n";
+      						
 			ConstraintVisitor c(os, declToLogicVarMap, SM);
 			if (D->hasBody())
 			{
