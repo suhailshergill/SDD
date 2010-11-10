@@ -2,6 +2,7 @@
 #define __REAL__SOURCE__RANGES__HPP
 
 #include <utility>
+#include <map>
 
 namespace clang
 {
@@ -9,17 +10,22 @@ namespace clang
   class Decl;
 }
 
-// typedef std::pair<size_t, size_t> OffsetRange;
-
+enum RangeQualifier
+  {
+    DECL, IFCONDITION, STMT, COMPOUNDSTMT, INITIALIZER,
+  };
+  
 class OffsetRange
 {
 public:
-  OffsetRange(size_t begin, size_t end, const char* fileName)
+  OffsetRange(size_t begin, size_t end, const char* fileName, RangeQualifier rangeType)
   {
     this->begin = begin;
     this->end = end;
     this->fileName = fileName;
+    this->rangeType = rangeType;
   }
+   
 
   size_t getBegin() 
   {
@@ -33,13 +39,23 @@ public:
   {
     return fileName;
   }
-    
+  RangeQualifier getRangeType()
+  {
+    return rangeType;
+  }
+  
+      
 private:
   size_t begin;
   size_t end;
   const char* fileName;
+  RangeQualifier rangeType;
 };  
 
-OffsetRange getRealSourceRange(clang::SourceManager & SM, clang::Decl *D);
+typedef std::vector<OffsetRange> OffsetRanges;
+typedef std::map<RangeQualifier, std::string> RangeKindToGUIDMap;
+
+OffsetRanges getRealSourceRange(clang::SourceManager & SM, clang::Decl *D);
+OffsetRanges getRealSourceRange(clang::SourceManager & SM, clang::Stmt *D);
 
 #endif // __REAL__SOURCE__RANGES__HPP

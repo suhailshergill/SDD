@@ -22,10 +22,10 @@ namespace
   struct TokenScanException : public BaseException
   {
     enum ScanDirection
-    {
-      SCAN_FORWARD,
-      SCAN_BACKWARD
-    };
+      {
+	SCAN_FORWARD,
+	SCAN_BACKWARD
+      };
 
     TokenScanException(const std::string & keyword, size_t startingIndex, ScanDirection sd)
     {
@@ -34,12 +34,12 @@ namespace
       std::string dir;
 
       switch(sd)
-      {
-      case SCAN_FORWARD:
-        dir = "forward"; break;
-      case SCAN_BACKWARD:
-        dir = "backward"; break;
-      }
+	{
+	case SCAN_FORWARD:
+	  dir = "forward"; break;
+	case SCAN_BACKWARD:
+	  dir = "backward"; break;
+	}
 
       os << "TokenScanException: Could not find '" << keyword
          << "' scanning  " << dir << " from offset " << startingIndex;
@@ -109,35 +109,41 @@ namespace
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
   }
 
-  class DeclSourceRangeVisitor : public DeclVisitor<DeclSourceRangeVisitor, OffsetRange>
+  class DeclSourceRangeVisitor : public DeclVisitor<DeclSourceRangeVisitor, OffsetRanges>
   {
   public:
     DeclSourceRangeVisitor(SourceManager & SMan)
-    :SM(SMan)
+      :SM(SMan)
     {
     }
 
-    OffsetRange VisitTypedefDecl(TypedefDecl *D)
+    OffsetRanges VisitTypedefDecl(TypedefDecl *D)
     {
-			FullSourceLoc definedTypeBegin(D->getLocation(), SM);
+      FullSourceLoc definedTypeBegin(D->getLocation(), SM);
 			
-			size_t typedefBegin = scanBackTo("typedef", definedTypeBegin);
-			size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
+      size_t typedefBegin = scanBackTo("typedef", definedTypeBegin);
+      size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
 
-			return OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier());
+      OffsetRanges oRanges;
+      oRanges.insert(oRanges.begin(), OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier(),DECL));
+			
+      return oRanges;
     }
 
-    OffsetRange VisitEnumDecl(EnumDecl *D)
+    OffsetRanges VisitEnumDecl(EnumDecl *D)
     {
       FullSourceLoc definedTypeBegin(D->getLocation(), SM);
       
       size_t typedefBegin = scanBackTo("enum", definedTypeBegin);
       size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
       
-      return OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier());
+      OffsetRanges oRanges;
+      oRanges.insert(oRanges.begin(), OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier(), DECL));
+      return oRanges;
+      
     }
 
-    OffsetRange VisitRecordDecl(RecordDecl *D)
+    OffsetRanges VisitRecordDecl(RecordDecl *D)
     {
       FullSourceLoc definedTypeBegin(D->getLocation(), SM);
       FullSourceLoc definedTypeEnd(D->getRBraceLoc(), SM);
@@ -153,10 +159,13 @@ namespace
       size_t typedefBegin = scanBackTo(kindName, definedTypeBegin);
       size_t typedefEnd = scanForwardTo(";", definedTypeEnd);
       
-      return OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier());
+      OffsetRanges oRanges;
+      oRanges.insert(oRanges.begin(), OffsetRange(typedefBegin, typedefEnd, definedTypeBegin.getBuffer()->getBufferIdentifier(), DECL));
+      return oRanges;
+      
     }    
 
-    OffsetRange VisitVarDecl(VarDecl *D)
+    OffsetRanges VisitVarDecl(VarDecl *D)
     {
       SourceRange sr = D->getSourceRange();
       SourceLocation sBegin = SM.getSpellingLoc(sr.getBegin());
@@ -165,21 +174,57 @@ namespace
       // SourceRange qr = D->DeclaratorDecl::getQualifierRange();
       SourceLocation qBegin = SM.getSpellingLoc(D->getTypeSpecStartLoc());//qr.getBegin());
 
-      return OffsetRange(SM.getFileOffset(qBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin));
+      OffsetRanges oRanges;
+      oRanges.insert(oRanges.begin(), OffsetRange(SM.getFileOffset(qBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin), DECL));
+      return oRanges;
+      
     }
 
-    OffsetRange VisitDecl(Decl *D)
+    OffsetRanges VisitDecl(Decl *D)
     {
       throw DeclRangeCalculatorNotImplementedException(D);
-    }
+    }   
+
 
   private:
     SourceManager & SM;
   };
+
+  class StmtSourceRangeVisitor : public StmtVisitor<StmtSourceRangeVisitor, OffsetRanges>
+  {
+  public:
+    StmtSourceRangeVisitor(SourceManager & SMan)
+      :SM(SMan)
+    {
+    }
+
+    OffsetRanges VisitIfStmt(IfStmt *S)
+    {
+      const Expr* C = S->getCond();
+      SourceRange sr = C->getExprLoc();
+      SourceLocation sBegin = SM.getSpellingLoc(sr.getBegin());
+      SourceLocation sEnd = SM.getSpellingLoc(sr.getEnd());
+      OffsetRanges oRanges;
+      oRanges.insert(oRanges.begin(), OffsetRange(SM.getFileOffset(sBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin), STMT));
+
+      return oRanges;      
+    }
+    
+    
+  private:
+    SourceManager & SM;
+  };
+
 }
 
-OffsetRange getRealSourceRange(SourceManager & SM, Decl *D)
+OffsetRanges getRealSourceRange(SourceManager & SM, Decl *D)
 {
   DeclSourceRangeVisitor dsrv(SM);
   return dsrv.Visit(D);
+}
+
+OffsetRanges getRealSourceRange(SourceManager & SM, Stmt *S)
+{
+  StmtSourceRangeVisitor ssrv(SM);
+  return ssrv.Visit(S);
 }
