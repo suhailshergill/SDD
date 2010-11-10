@@ -62,7 +62,7 @@ namespace
     }
   };
 
-  size_t scanBackTo(const std::string & keyword, FullSourceLoc sl)
+  size_t scanBackTo(const std::string & keyword, FullSourceLoc sl, bool isInclusive=true)
   {
     assert(!keyword.empty());
 
@@ -74,19 +74,19 @@ namespace
     size_t currentIndex = startingIndex + 1;
 
     while(--currentIndex >= 0)
-    {
-      while(bufferStart[currentIndex] != keyword[0])
-        --currentIndex;
-      std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
+      {
+	while(bufferStart[currentIndex] != keyword[0])
+	  --currentIndex;
+	std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
 
-      if(maybeKeyword == keyword)
-        return currentIndex;
-    }
+	if(maybeKeyword == keyword)
+	  return (isInclusive ? currentIndex : currentIndex - keyword.length());
+      }
 
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_BACKWARD);
   }
 
-  size_t scanForwardTo(const std::string & keyword, FullSourceLoc sl)
+  size_t scanForwardTo(const std::string & keyword, FullSourceLoc sl, bool isInclusive=true)
   {
     assert(!keyword.empty());
 
@@ -98,13 +98,13 @@ namespace
 
     // Jump to before the token
     while(currentIndex >= 0)
-    {
-      while(bufferStart[currentIndex] != keyword[0])
-        ++currentIndex;
-      std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
-      if(maybeKeyword == keyword)
-        return currentIndex + keyword.length();
-    }
+      {
+	while(bufferStart[currentIndex] != keyword[0])
+	  ++currentIndex;
+	std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
+	if(maybeKeyword == keyword)
+	  return (isInclusive ? currentIndex + keyword.length() : currentIndex);
+      }
 
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
   }
