@@ -28,6 +28,14 @@ namespace
   typedef std::pair<Decl *, std::string> VarPair;
   typedef std::set<std::string> SymbolSet;
 
+  void printSymbol(llvm::raw_fd_ostream &os,
+		   RangeKindToGUIDMap varNames);
+  void printSourceRanges(llvm::raw_fd_ostream &os, 
+			 RangeKindToGUIDMap varNames, 
+			 OffsetRanges & oRanges);
+  void printDependency(llvm::raw_fd_ostream &os,
+		       const std::string & logVar,
+		       const std::string & dependency);
   inline void _debug(std::string s)
   {
     //std::cerr << s;
@@ -273,11 +281,11 @@ namespace
       OffsetRanges oRanges = getRealSourceRange(*SM, D);
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
-      printSymbol(varNames);
-      printSourceRanges(varNames, oRanges);
+      printSymbol(os, varNames);
+      printSourceRanges(os, varNames, oRanges);
 
       std::string dependsOnDecl = getDeclarationForType(D->getUnderlyingType());
-      printDependency(var, dependsOnDecl);
+      printDependency(os, var, dependsOnDecl);
 
       os << "\n";
 
@@ -295,8 +303,8 @@ namespace
       OffsetRanges oRanges = getRealSourceRange(*SM, D);
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
-      printSymbol(varNames);
-      printSourceRanges(varNames, oRanges);
+      printSymbol(os, varNames);
+      printSourceRanges(os, varNames, oRanges);
       // No dependencies
       os << "\n";
 			
@@ -313,8 +321,8 @@ namespace
       OffsetRanges oRanges = getRealSourceRange(*SM, D);
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
-      printSymbol(varNames);
-      printSourceRanges(varNames, oRanges);
+      printSymbol(os, varNames);
+      printSourceRanges(os, varNames, oRanges);
 
       RecordDecl::field_iterator fIt;      
       for(fIt = D->field_begin(); fIt != D->field_end(); fIt++)
@@ -323,7 +331,7 @@ namespace
 	  if(fIt->isAnonymousStructOrUnion())
 	    continue;
 	  std::string dependsOnDecl = getDeclarationForType(fIt->getType());
-	  printDependency(var, dependsOnDecl);	  
+	  printDependency(os, var, dependsOnDecl);	  
 	}
       
       os << "\n";
@@ -375,13 +383,13 @@ namespace
       OffsetRanges oRanges = getRealSourceRange(*SM, D);
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
-      printSymbol(varNames);
-      printSourceRanges(varNames, oRanges);
+      printSymbol(os, varNames);
+      printSourceRanges(os, varNames, oRanges);
 
       QualType t = D->getType();
       std::string varType = getDeclarationForType(t);
       if(!varType.empty())
-        printDependency(var, varType);
+        printDependency(os, var, varType);
 
       os << "\n";
 
@@ -436,65 +444,12 @@ namespace
       return it->second;
     }
 
-    void printSourceRanges(RangeKindToGUIDMap varNames, OffsetRanges & oRanges)
-    {
-      OffsetRanges::iterator it;
-      for(it=oRanges.begin(); it != oRanges.end(); it++)
-	{
-	  os << "sourceRange(" << varNames[it->getRangeType()] << ","
-	     << it->getBegin() << ","
-	     << it->getEnd() << ","
-	     << "'" << it->getFileName() <<"').\n";
-	}
-      os.flush();
-    }
-
     void printDeclKindAndName(NamedDecl *D, const char* kindName="")
     {
       std::string nameOfKind(D->getDeclKindName());
       nameOfKind[0] = tolower(nameOfKind[0]);
       os << "%% " << ((strlen(kindName) == 0) ? nameOfKind : kindName) << " " << D->getQualifiedNameAsString() << "\n";
     }    
-
-    void printSymbol(RangeKindToGUIDMap varNames)
-    {
-      RangeKindToGUIDMap::iterator it;
-      for(it=varNames.begin(); it != varNames.end(); it++)
-	{
-	  std::string predName;
-	  switch((*it).first)
-	    {
-	    case DECL:
-	      predName = "isDeclaration";
-	      break;
-	    case IFCONDITION:
-	      predName = "isCondition";
-	      break;
-	    case STMT:
-	      predName = "isStatement";
-	      break;
-	    case COMPOUNDSTMT:
-	      predName = "isCompoundStatement";
-	      break;
-	    case INITIALIZER:
-	      predName = "isInitializer";
-	      break;
-	    default:
-	      assert(0 && "No symbol found for RangeQualifier");
-	    }
-	  os << predName << "(" << (*it).second << ").\n";
-	}
-      os.flush();
-    }
-    
-    void printDependency(const std::string & logVar,
-			 const std::string & dependency)
-    {
-      if(!dependency.empty())
-        os << "dependsOn(" << logVar << ","
-           << dependency << ").\n";
-      os.flush();
-    }
 
     bool isInMainFile(SourceRange sr)
     {
@@ -550,6 +505,67 @@ namespace
     llvm::raw_fd_ostream * os;
     std::string streamErrors;
   };
+
+  // Utility functions
+  void printSymbol(llvm::raw_fd_ostream &os,
+		   RangeKindToGUIDMap varNames)
+  {
+    RangeKindToGUIDMap::iterator it;
+    for(it=varNames.begin(); it != varNames.end(); it++)
+      {
+	std::string predName;
+	switch((*it).first)
+	  {
+	  case DECL:
+	    predName = "isDeclaration";
+	    break;
+	  case IFCONDITION:
+	    predName = "isCondition";
+	    break;
+	  case STMT:
+	    predName = "isStatement";
+	    break;
+	  case COMPOUNDSTMT:
+	    predName = "isCompoundStatement";
+	    break;
+	  case INITIALIZER:
+	    predName = "isInitializer";
+	    break;
+	  default:
+	    assert(0 && "No symbol found for RangeQualifier");
+	  }
+	os << predName << "(" << (*it).second << ").\n";
+      }
+    os.flush();
+  }
+    
+  void printSourceRanges(llvm::raw_fd_ostream &os, 
+			 RangeKindToGUIDMap varNames, 
+			 OffsetRanges & oRanges)
+  {
+    OffsetRanges::iterator it;
+    for(it=oRanges.begin(); it != oRanges.end(); it++)
+      {
+	os << "sourceRange(" << varNames[it->getRangeType()] << ","
+	   << it->getBegin() << ","
+	   << it->getEnd() << ","
+	   << "'" << it->getFileName() <<"').\n";
+      }
+    os.flush();
+  }
+
+  void printDependency(llvm::raw_fd_ostream &os,
+		       const std::string & logVar,
+		       const std::string & dependency)
+  {
+    if(!dependency.empty())
+      os << "dependsOn(" << logVar << ","
+	 << dependency << ").\n";
+    os.flush();
+  }
+
+
+
 }
 
 static FrontendPluginRegistry::Add<GenerateConstraintsAction>
