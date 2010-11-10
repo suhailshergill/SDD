@@ -453,7 +453,7 @@ namespace
     {
       std::string nameOfKind(D->getDeclKindName());
       nameOfKind[0] = tolower(nameOfKind[0]);
-      os << "# " << ((strlen(kindName) == 0) ? nameOfKind : kindName) << " " << D->getQualifiedNameAsString() << "\n";
+      os << "%% " << ((strlen(kindName) == 0) ? nameOfKind : kindName) << " " << D->getQualifiedNameAsString() << "\n";
     }    
 
     void printSymbol(RangeKindToGUIDMap varNames)
