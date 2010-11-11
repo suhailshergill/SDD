@@ -1,0 +1,59 @@
+\documentclass[11pt]{article}
+\input{template}
+
+\usepackage{url}
+\usepackage{natbib}
+\usepackage{hyperref}
+\newcommand{\mailto}[1]{\href{mailto:#1}{#1}}
+
+\setcitestyle{comma,numbers,sort&compress,square}
+
+\title{Semantic Delta-Debugging\\
+Midpoint Review}
+\author{Andrew Coonce, Suhail Shergill, Tristan Ravitch \\
+\{\mailto{coonce}, \mailto{shergill}, \mailto{travitch}\}@cs.wisc.edu
+}
+\begin{document}
+% \special{papersize=8.5in,11in}
+% \setlength{\pdfpageheight}{\paperheight}
+% \setlength{\pdfpagewidth}{\paperwidth}
+% You may need to change the horizontal offset to do what you
+% want.  Setting \hoffset to a negative value moves all printed
+% material to the left on all pages; setting it to a positive value
+% moves all printed material to the right on all pages; not setting
+% it keeps all printed material in it's default position.  \voffset
+% is the vertical offset: use negative value for up; don't set if
+% you want to use default position; use positive for down.
+% \hoffset = -0.2truein
+% \voffset = -0.2truein
+\maketitle
+
+\section{Progress to Date}
+As set forth in our initial proposal, we continue to view the dependency detection algorithm as decoupled from the delta-debugging algorithm. Accordingly, our work to date has emphasized the dependency detection aspect of the project and this midpoint review will detail our progress on that section.
+
+The \emph{front-end} (responsible for parsing source files and generating semantic dependencies between source ranges) is the source of most of the progress that we have made. Given the need to intelligently walk the AST, we have extended the C/C++ front-end of Clang to introduce our syntactic and semantic dependency constrains over \emph{source ranges}. As anticipated, we have encountered some character-level source range issues in Clang that required additional character-level parsing, but by-and-large the existing AST has provided the majority of the required information.
+
+Thus far, we have developed the following components of our front-end:
+
+\begin{itemize}
+\item{\emph{Driver} - initializes the diagnostic components and envokes the compiler}
+\item{\emph{DeclForTypeVisitor} - visits Decl objects (the Clang representations of top-level function/variable/etc. declarations) }
+\item{\emph{ConstraintVisitor} - visits Stmt objects (the Clang representation of statements/expressions)}
+\item{\emph{ConstraintGenerator} - visits the source file and spawns the Decl/Stmt visitors}
+\item{\emph{GenerateConstraintsAction} - I HAVE NO IDEA WHAT THIS IS... PLEASE ADVISE - ALC}
+\item{\emph{Helper functions} - to handle boundary cases that are not appropriately addressed by the visitors}
+\end{itemize}
+
+The visitors, which represent the majority of the complexity at this stage of the project, are largely complete. We have a full-featured declaration-level dependency generator that handles \emph{typedef}, \emph{enum}, \emph{record}, \emph{global variable}, and \emph{function} declaration related dependencies. Within the function declaration dependency generator, our statement-level visitor traverses the statements and expressions within the function scope. This statement-level visitor currently handles \emph{variable} dependencies and appropriately resolves the \emph{scope} of dependencies as well.
+
+We have encountered a few minor issues during development, but these were anticipated in the initial project proposal. As there was an proof-of-concept program sketch made last summer, we knew that the source ranges reported by Clang sometimes did not encompass what one would expect. For example, the source range of a \emph{typedef} declaration statement (that is, a TypedefDecl node) does not include the initial "typedef" keyword nor does it extend to the trailing semicolon. To address this, we implemented a few helper functions to generate "true" source ranges for these few special cases. As we had anticipated encountering these kinds of issues, when they arose we were able to handle them in time and have remained on schedule.
+
+Our output from the Constraint Generation phase is a flat-file representing the mapping from symbols (which can represent statements, variables, types, etc.) to source-ranges and the dependencies between symbols. While not complete for all language features to date, we anticipate finishing the Constraint Generation phase of the project by our 11/12 deadline.
+
+\section{Future Developments}
+%alc - Suhail, I could use your opinion on this part
+Our next project phase, the Querying Framework, will involve the design and implementation of the dependency relation transitive closure computation. Working from the dependency graph, we will develop a graph partitioning strategy that approximates the binary search of a traditional delta debugging implementation while drawing upon the wealth of dependecy-related information provided by the Constraint Generation phase. At this stage, we are considering extending our framework to handle more C++ language features as changes to handling of specific AST node "types" is a relatively painless process given the general nature of our output format and the general robustness of the delta debugging algorithm.
+
+%alc - should we mention that we are pulling together test cases for our evaluation phase?
+%alc - should we mention our evaluation phase?
+\end{document}
