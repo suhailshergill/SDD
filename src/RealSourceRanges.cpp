@@ -80,7 +80,7 @@ namespace
 	std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
 
 	if(maybeKeyword == keyword)
-	  return (isInclusive ? currentIndex : currentIndex - keyword.length());
+	  return (isInclusive ? currentIndex : currentIndex + keyword.length());
       }
 
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_BACKWARD);
