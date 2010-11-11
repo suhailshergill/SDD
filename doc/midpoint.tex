@@ -38,33 +38,31 @@ section.
 The \emph{front-end} (responsible for parsing source files and generating
 semantic dependencies between source ranges) is the source of most of the
 progress that we have made. Given the need to intelligently walk the AST, we
-have extended the C/C++ front-end of Clang to introduce our syntactic and
-semantic dependency constrains over \emph{source ranges}. As anticipated, we
-have encountered some minor source range issues in Clang that required
-additional character-level parsing, but by-and-large the existing AST has
-provided the majority of the required information.
+used Clang \citep{clang} libraries to parse C/C++ code and introduce our
+syntactic and semantic dependency constrains over \emph{source ranges}. As
+anticipated, we have encountered some minor source range issues in Clang that
+required additional character-level parsing, but by-and-large the AST methods as
+provided by Clang have provided the majority of the required information.
 
-Thus far, we have encountered a few minor issues during development but these were
-anticipated in the initial project proposal. As there was a proof-of-concept
-program sketch made last summer, we knew that the source ranges reported by
-Clang \citep{clang} sometimes does not encompass what one would expect. For
-example, the source range of a \emph{typedef} declaration statement (that is, a
-TypedefDecl node) does not include the initial "typedef" keyword nor does it
-extend to the trailing semicolon. To address this, we implemented a few helper
-functions to generate "true" source ranges for these few special cases. As we
-had anticipated encountering these kinds of issues, when they arose we were able
-to handle them in time and have remained on schedule.
+As there was a proof-of-concept program sketch made last summer, we knew that
+the source ranges reported by Clang sometimes do not encompass what one would
+expect. For example, the source range of a \emph{typedef} declaration statement
+(that is, a TypedefDecl node) does not include the initial ``typedef'' keyword,
+nor does it extend to the trailing semicolon. To address this, we implemented a
+few helper functions to generate ``true'' source ranges for these few special
+cases. As we had anticipated encountering these kinds of issues, when they arose
+we were able to handle them in time and have remained on schedule.
 
 Our output from the Constraint Generation phase is a flat-file representing the
-both the mapping from symbols (statements/functions/etc.) to
-source-ranges and the dependencies between symbols. We record this information in
-the form of Prolog predicates that will feed directly into the next project phase.
+both the mapping from symbols (statements/functions/etc.) to source-ranges and
+the dependencies between symbols. We record this information in the form of
+Prolog predicates that will feed directly into the next project phase.
 
 
 Thus far, we have developed the following components of our front-end:
 
 \begin{itemize}
-\item{\emph{Driver} - initializes and envokes the diagnostic components}
+\item{\emph{Driver} - initializes and envokes the front-end.}
 
 \item{\emph{StmtVisitor} - visits Stmt objects (the Clang representation
   of statements/expressions) and creates dependencies between a statement and
@@ -95,10 +93,10 @@ well.
 We've also started tackling some of the more important C++ constructs and have
 dependency-generating visitors in place for \emph{function templates} and
 \emph{template specialization}. We're currently working on handling
-\emph{friendship} and \emph{inheritance} related \emph{class} dependencies. While
-not complete for all language features to date, we anticipate finishing the
-Constraint Generation phase of the project for most of the important constructs
-by our 11/12 deadline.
+\emph{friendship} and \emph{inheritance} related \emph{class}
+dependencies. While not complete for all language features to date, we
+anticipate finishing the Constraint Generation phase of the project for most of
+the important constructs by our 11/12 deadline.
 
 
 \section{Future Developments}
@@ -112,12 +110,9 @@ how they might be implemented. We will also consider whether there would be any
 benefit in going to a graph based representation whereby we might be able to
 make use algorithms from graph cutting. For this next phase of the project we
 plan on working with PySWIP \citep{pyswip} which provides a bridge between
-Python and SWI-Prolog. Finally, we have begun looking at test cases for use in
-the evaluate phase. By beginning to look at the test cases now, we're ensuring
-that we implement the necessary components in the Constraint Generation phase.
-While the methodology we're exploring could theoreticall work with any constraints,
-we intend to provide as accurate of a respresentation of our ideas as we can given
-the types of dependencies we see in what should be representative test cases.
+Python and SWI-Prolog. Finally, we have begun looking at specific test cases for
+use in the evaluation phase with the intent of incorporating as many of the language
+features as we can to allow us to run our algorithm on real-world code.
 
 \bibliographystyle{abbrvnat}
 \bibliography{midpointRefs}
