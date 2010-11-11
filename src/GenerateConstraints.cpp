@@ -76,12 +76,12 @@ namespace
   {
   public:
     ConstraintVisitor(llvm::raw_fd_ostream & stream, VarMap globalMap, SourceManager * mgr)
-      :os(stream),
+      :INCEPTION_POINT(0),
        scopeMap(globalMap),
+       os(stream),
        SM(mgr),
-       stmtSymbols(),
        scopeSymbols(),
-       INCEPTION_POINT(0)
+       stmtSymbols()
     {
     }
 
