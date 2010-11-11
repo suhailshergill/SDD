@@ -40,14 +40,14 @@ semantic dependencies between source ranges) is the source of most of the
 progress that we have made. Given the need to intelligently walk the AST, we
 have extended the C/C++ front-end of Clang to introduce our syntactic and
 semantic dependency constrains over \emph{source ranges}. As anticipated, we
-have encountered some character-level source range issues in Clang that required
+have encountered some minor source range issues in Clang that required
 additional character-level parsing, but by-and-large the existing AST has
 provided the majority of the required information.
 
-We have encountered a few minor issues during development, but these were
+Thus far, we have encountered a few minor issues during development but these were
 anticipated in the initial project proposal. As there was a proof-of-concept
 program sketch made last summer, we knew that the source ranges reported by
-Clang \citep{clang} sometimes did not encompass what one would expect. For
+Clang \citep{clang} sometimes does not encompass what one would expect. For
 example, the source range of a \emph{typedef} declaration statement (that is, a
 TypedefDecl node) does not include the initial "typedef" keyword nor does it
 extend to the trailing semicolon. To address this, we implemented a few helper
@@ -56,42 +56,27 @@ had anticipated encountering these kinds of issues, when they arose we were able
 to handle them in time and have remained on schedule.
 
 Our output from the Constraint Generation phase is a flat-file representing the
-mapping from symbols (which can represent statements, variables, types, etc.) to
-source-ranges and the dependencies between symbols. All this is in the form of
-Prolog predicates.
+both the mapping from symbols (statements/functions/etc.) to
+source-ranges and the dependencies between symbols. We record this information in
+the form of Prolog predicates that will feed directly into the next project phase.
 
 
 Thus far, we have developed the following components of our front-end:
 
 \begin{itemize}
-\item{\emph{Driver} - initializes the diagnostic components and envokes the
-  compiler}
-%% i'm not sure 'envokes the compiler' is the right phrase we want here. --- SSS
+\item{\emph{Driver} - initializes and envokes the diagnostic components}
 
-%% \item{\emph{DeclForTypeVisitor} - visits Decl objects (the Clang representations
-%%   of top-level function/variable/etc. declarations) }
-%% don't need to make special mention of this. All it did was return the
-%%   declaration object corresponding to a Type.
-
-\item{\emph{ConstraintVisitor} - visits Stmt objects (the Clang representation
+\item{\emph{StmtVisitor} - visits Stmt objects (the Clang representation
   of statements/expressions) and creates dependencies between a statement and
   the declaration of the variables referenced therein.}
-
-%% might want to give this (ConstraintVisitor) a new name? one which is more
-%% informative --- SSS
 
 \item{\emph{ConstraintGenerator} - visits the top-level variable, function and
   type declarations (typedefs) and generates appropriate dependencies. Also
   is responsible for instantiating a fresh statement visitor to visit the body
   of each of the top level functions.}
 
-%% \item{\emph{GenerateConstraintsAction} - I HAVE NO IDEA WHAT THIS IS... PLEASE
-%%   ADVISE - ALC}
-%% It's just an argument parser for the driver along with an initializer. We
-%%   don't need to mention it. --- SSS
-
-\item{\emph{Helper functions} - Clang doesn't quite give us the sourceranges we
-  want for the various lexical elements and so we have helper functions in place
+\item{\emph{Helper functions} - Clang doesn't quite give us the source ranges we
+  want for the various lexical elements so we have added helper functions
   to scan forward/backward in the source file. There are also helper methods in
   place responsible for printing out the Prolog predicates encapsulating source
   range information and dependencies between various elements.
@@ -110,42 +95,29 @@ well.
 We've also started tackling some of the more important C++ constructs and have
 dependency-generating visitors in place for \emph{function templates} and
 \emph{template specialization}. We're currently working on handling
-\emph{classes} generating dependencies due to \emph{friendship} and
-\emph{inheritance}. While not complete for all language features to date, we
-anticipate finishing the Constraint Generation phase of the project for most of
-the important constructs by our 11/12 deadline.
+\emph{friendship} and \emph{inheritance} related \emph{class} dependencies. While
+not complete for all language features to date, we anticipate finishing the
+Constraint Generation phase of the project for most of the important constructs
+by our 11/12 deadline.
 
 
 \section{Future Developments}
-%alc - Suhail, I could use your opinion on this part
 
 Our next project phase, the Querying Framework, will involve the design and
 implementation of the search and querying strategy. Encapsulating the dependency
 information in the form of Prolog predicates means that things like computing
 the transitive closure of the dependency relation will be trivial. Over the
-course of the next few weeks we'll consider possible search strategies and how
-to go about implementing them. We will also consider if there would be any
+course of the next few weeks, we will consider possible search strategies and
+how they might be implemented. We will also consider whether there would be any
 benefit in going to a graph based representation whereby we might be able to
 make use algorithms from graph cutting. For this next phase of the project we
 plan on working with PySWIP \citep{pyswip} which provides a bridge between
-Python and SWI-Prolog.
-
-
-%% Working from the dependency
-%% graph, we will develop a graph partitioning strategy that approximates the
-%% binary search of a traditional delta debugging implementation while drawing upon
-%% the wealth of dependecy-related information provided by the Constraint
-%% Generation phase. At this stage, we are considering extending our framework to
-%% handle more C++ language features as changes to handling of specific AST node
-%% "types" is a relatively painless process given the general nature of our output
-%% format and the general robustness of the delta debugging algorithm.
-
-%alc - should we mention that we are pulling together test cases for our evaluation phase?
-%alc - should we mention our evaluation phase?
-
-%% yeah put in a line or two about us looking at test cases and using those as a
-%% guide to see which language features we want to prioritize for our constraint
-%% generation step. --- SSS
+Python and SWI-Prolog. Finally, we have begun looking at test cases for use in
+the evaluate phase. By beginning to look at the test cases now, we're ensuring
+that we implement the necessary components in the Constraint Generation phase.
+While the methodology we're exploring could theoreticall work with any constraints,
+we intend to provide as accurate of a respresentation of our ideas as we can given
+the types of dependencies we see in what should be representative test cases.
 
 \bibliographystyle{abbrvnat}
 \bibliography{midpointRefs}
