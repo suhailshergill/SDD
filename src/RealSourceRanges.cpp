@@ -200,14 +200,35 @@ namespace
 
     OffsetRanges VisitIfStmt(IfStmt *S)
     {
-      const Expr* C = S->getCond();
-      SourceRange sr = C->getExprLoc();
-      SourceLocation sBegin = SM.getSpellingLoc(sr.getBegin());
-      SourceLocation sEnd = SM.getSpellingLoc(sr.getEnd());
       OffsetRanges oRanges;
-      oRanges.insert(oRanges.begin(), OffsetRange(SM.getFileOffset(sBegin), SM.getFileOffset(sEnd), SM.getBufferName(sBegin), STMT));
+
+      const Expr* C = S->getCond();
+      FullSourceLoc ifConditionB(C->getLocStart(), SM);
+      FullSourceLoc ifConditionE(C->getLocEnd(), SM);
+      size_t conditionBegin = scanBackTo("(", ifConditionB, false);
+      size_t conditionEnd = scanForwardTo(")", ifConditionE, false);
+      oRanges.insert(oRanges.begin(), OffsetRange(conditionBegin, conditionEnd, ifConditionB.getBuffer()->getBufferIdentifier(), IFCONDITION));
+      
+      FullSourceLoc thenLoc(S->getThen()->getLocStart(), SM);
+      FullSourceLoc elseLoc((S->getElse()==NULL ? S->getThen() : S->getElse())->getLocEnd(), SM);
+      size_t ifBegin = scanBackTo("if", thenLoc, true);
+      size_t ifEnd = scanForwardTo("}", elseLoc, true);
+      oRanges.insert(oRanges.begin(), OffsetRange(ifBegin, ifEnd, thenLoc.getBuffer()->getBufferIdentifier(), STMT));
 
       return oRanges;      
+    }
+
+    OffsetRange ExprVisitor(Expr *E, std::string leftBoundary, bool leftInclusive, std::string rightBoundary, bool rightInclusive)
+    {
+      OffsetRanges oRanges;
+      
+      SourceRange sr = E->getSourceRange();
+      FullSourceLoc exprB(sr.getBegin(), SM);
+      FullSourceLoc exprE(sr.getEnd(), SM);
+      size_t exprBegin = scanBackTo(leftBoundary, exprB, leftInclusive);
+      size_t exprEnd = scanBackTo(rightBoundary, exprE, rightInclusive);
+      
+      return OffsetRange(exprBegin, exprEnd, exprB.getBuffer()->getBufferIdentifier(), EXPR);
     }
     
     
