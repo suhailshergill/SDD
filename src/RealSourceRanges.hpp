@@ -12,7 +12,7 @@ namespace clang
 
 enum RangeQualifier
   {
-    DECL, IFCONDITION, STMT, COMPOUNDSTMT, INITIALIZER,
+    DECL, IFCONDITION, STMT, COMPOUNDSTMT, INITIALIZER, EXPR
   };
   
 class OffsetRange
