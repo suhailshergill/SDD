@@ -1,5 +1,6 @@
-%% define negation as failure
-not(P) :- (call(P) -> fail ; true).
+%% define set operations, negation as failure etc.
+include('utils.pl').
+
 
 %% nested sourceRanges
 containedWithin(X, Y) :- 
@@ -24,6 +25,11 @@ replaceWith(X, '') :- isDeclaration(X).
 replaceWith(X, '') :- isStatement(X).
 replaceWith(X, '0') :- isCondition(X).
 replaceWith(X, '1') :- isCondition(X).
+replaceWith(X, '') :- isExpression(X).
 
 %% valid to remove
 isRemovable(X) :- replaceWith(X, _).
+
+
+%% compute transitive dependencies
+
