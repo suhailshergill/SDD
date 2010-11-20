@@ -1,5 +1,5 @@
 %% define set operations, negation as failure etc.
-include('utils.pl').
+:- include('utils.pl').
 
 
 %% nested sourceRanges
