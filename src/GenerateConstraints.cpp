@@ -149,6 +149,24 @@ namespace
 	}
     }
 
+    void VisitIfStmt(IfStmt *S)
+    {
+      std::string stmtSymbol = getNewGUID();
+      std::string conditionSymbol = getNewGUID();
+
+      OffsetRanges oRanges = getRealSourceRange(*SM, S);
+      RangeKindToGUIDMap varNames;
+      varNames[STMT] = stmtSymbol;
+      varNames[IFCONDITION] = conditionSymbol;      
+      printSymbol(os, varNames);
+      printSourceRanges(os, varNames, oRanges);
+
+      VisitStmt(S);
+      
+    }
+
+    
+
     void VisitCompoundStmt(CompoundStmt * S)
     {
       _debug("IN\tVisitCompountStmt\n");
@@ -196,6 +214,13 @@ namespace
 
       _debug("OUT\tVisitDeclRefExpr\n");
     }
+
+  private:
+    void printStmtKind(Stmt *S)
+    {
+      os << "%% " << S->getStmtClassName() << "\n";
+    }
+    
 
   private:
     VarMap scopeMap;
