@@ -60,8 +60,10 @@ namespace
   
   inline void _debug(String s)
   {
+  	/*
     std::cerr << s;
     std::cerr.flush();
+  	*/
   }
   
   unsigned int GUID_COUNT = 0;
