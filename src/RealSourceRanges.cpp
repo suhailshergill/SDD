@@ -323,7 +323,7 @@ namespace
                                  posEnd,
                                  exprBegin.getBuffer()->getBufferIdentifier(),
                                  EXPR));
-      _debug("Expr::EXPR\n");
+      _debug("Expr::EXPR                 - ");
       _debug(stmtToSymbolMap[E]);
       _debug("\n");
       
