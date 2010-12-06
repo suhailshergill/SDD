@@ -1,9 +1,9 @@
 #include <stdint.h>
-#include <map>
-#include <set>
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <map>
+#include <set>
 
 #include <clang/AST/ASTConsumer.h>
 #include <clang/AST/AST.h>
@@ -16,6 +16,7 @@
 #include <clang/Frontend/FrontendPluginRegistry.h>
 #include <clang/Index/ASTLocation.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/raw_os_ostream.h>
 
 #include "RealSourceRanges.hpp"
 
@@ -23,36 +24,54 @@ using namespace clang;
 
 namespace
 {
-  typedef std::map<Decl *, std::string> VarMap;
-  typedef std::map<Stmt *, std::string> StmtMap;
-  typedef std::pair<Decl *, std::string> VarPair;
-  typedef std::set<std::string> SymbolSet;
-
-  void printSymbol(llvm::raw_fd_ostream &os,
-		   RangeKindToGUIDMap varNames);
-  void printSourceRanges(llvm::raw_fd_ostream &os, 
-			 RangeKindToGUIDMap varNames, 
-			 OffsetRanges & oRanges);
-  void printDependency(llvm::raw_fd_ostream &os,
-		       const std::string & logVar,
-		       const std::string & dependency);
-  inline void _debug(std::string s)
+  typedef llvm::raw_fd_ostream RawOS;
+  
+  typedef std::string String;
+  
+  typedef std::map<Decl *, String> DeclToSymMap;
+  typedef std::map<Stmt *, String> StmtToSymMap;
+  typedef std::map<String, Decl *> SymToDeclMap;
+  typedef std::map<String, Stmt *> SymToStmtMap;
+  
+  typedef std::pair<Decl *, String> VarPair;
+  typedef std::set<String> SymbolSet;
+  
+  void printLine(RawOS & os,
+                 Expr * E,
+                 SymbolSet dependantSymbols);
+  
+  void printLine(RawOS & os,
+                 Stmt * S,
+                 SymbolSet dependantSymbols);
+  
+  void printSymbol(RawOS &os,
+                   RangeKindToGUIDMap varNames);
+  
+  void printSourceRanges(RawOS &os,
+                         OffsetRanges & oRanges);
+  
+  void printDependencies(RawOS &os,
+                         const String & logVar,
+                         const SymbolSet & dependantSymbols);
+  
+  void printDependency(RawOS &os,
+                       const String & logVar,
+                       const String & dependency);
+  
+  inline void _debug(String s)
   {
-    //std::cerr << s;
+    std::cerr << s;
+    std::cerr.flush();
   }
-
+  
   unsigned int GUID_COUNT = 0;
-  std::string getNewGUID()
+  String getNewGUID()
   {
     std::ostringstream oss;
-    oss << "sym" << GUID_COUNT;
-    std::string newGUID = oss.str();
-
-    GUID_COUNT++;
-    
-    return newGUID;
+    oss << "sym" << (GUID_COUNT++);
+    return oss.str();
   }
-
+  
   class DeclForTypeVisitor : public TypeVisitor<DeclForTypeVisitor, Decl*>
   {
   public:
@@ -60,235 +79,261 @@ namespace
     {
       return T->getDecl();
     }
-
+    
     Decl* VisitTagType(TagType *T)
     {
       return T->getDecl();
     }
-
+    
     Decl* VisitType(Type *T)
     {
       return NULL;
     }
   };
-
+  
   class ConstraintVisitor : public StmtVisitor<ConstraintVisitor>
   {
   public:
-    ConstraintVisitor(llvm::raw_fd_ostream & stream, VarMap globalMap, SourceManager * mgr)
-      :INCEPTION_POINT(0),
-       scopeMap(globalMap),
+    ConstraintVisitor(RawOS & stream,
+                      DeclToSymMap globalMap,
+                      SymToDeclMap invGlobalMap,
+                      SourceManager * mgr)
+      :declToSymbolMap(globalMap),
+       symbolToDeclMap(invGlobalMap),
        os(stream),
-       SM(mgr),
-       scopeSymbols(),
-       stmtSymbols()
+       SM(mgr)
     {
     }
-
-    unsigned int INCEPTION_POINT;
-
-    std::string AddStmt(Stmt * S)
+    
+    String AddStmt(Stmt * S)
     {
-      std::string symbol = getNewGUID();
-      stmtMap[S] = symbol;
+      String symbol = getNewGUID(); // Fetch a new GUID
+      
+      stmtToSymbolMap[S] = symbol; // Create a mapping from the Stmt to the Symbol
+      symbolToStmtMap[symbol] = S; // Create a mapping from the Symbol to the Stmt
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, S, stmtToSymbolMap);
+      printSourceRanges(os, oRanges);
+      os << "\n";
+      os.flush();
+      
+      stmtSymbols.insert(symbol);         // Add the line to the dependencies for the stmt-level scope
+      compoundStmtSymbols.insert(symbol); // Add the line to the dependencies for the compoundStmt-level scope
+      
       return symbol;
     }
-
-    void AddDecl(Decl * D)
+    
+    String AddDecl(Decl * D)
     {
-      std::string symbol = getNewGUID();
-      scopeMap[D] = symbol;
-
-      VarPair P(D, symbol);
-
-      scopeMap.insert(P);
-
-      scopeSymbols.insert(symbol);
-      stmtSymbols.insert(symbol);
-    }
-
-    void DumpSymbols(Stmt * S, std::string sym, SymbolSet set)
-    {
-      os << "# " << S->getStmtClassName() << "\n";
-
-      os << "isStatement(" << sym << ").\n";
-
-      SourceLocation sStart = S->getLocStart();
-      SourceLocation sEnd   = S->getLocEnd();
-
-      os << "sourceRange(" << sym << ","
-         << SM->getFileOffset(sStart) << ","
-         << SM->getFileOffset(sEnd) << ","
-	 << SM->getBufferName(sStart) << ").\n";
-
-      for (SymbolSet::iterator it = set.begin(); it != set.end(); it++)
-	{
-	  if (!(it->empty()))
-	    os << "dependsOn(" << sym << "," << (*it) << ").\n";
-	}
-
+      String symbol = getNewGUID(); // Fetch a new GUID
+      
+      declToSymbolMap[D] = symbol; // Create a mapping from the Decl to the Symbol
+      symbolToDeclMap[symbol] = D; // Create a mapping from the Symbol to the Decl
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      printSourceRanges(os, oRanges);
       os << "\n";
-
       os.flush();
+      
+      stmtSymbols.insert(symbol);         // Add the line to the dependencies for the stmt-level scope
+      compoundStmtSymbols.insert(symbol); // Add the line to the dependencies for the compoundStmt-level scope
+      
+      return symbol;
     }
-
+    
     void VisitStmt(Stmt * S)
     {
-      // OffsetRanges oRange = getRealSourceRange(*SM, S);
-      // os << "sourceRange(" << "IFCOND" << ","
-      //    << oRange[0].getBegin() << ","
-      //    << oRange[0].getEnd() << ","
-      //    << oRange[0].getFileName() <<").\n";
-      // os.flush();
-
-		  
-
-      for (Stmt::child_iterator I = S->child_begin(), E = S->child_end(); I != E; ++I)
-	{
-	  if (*I) Visit(*I);
-	}
-    }
-
-    void VisitIfStmt(IfStmt *S)
-    {
-      std::string stmtSymbol = getNewGUID();
-      std::string conditionSymbol = getNewGUID();
-
-      OffsetRanges oRanges = getRealSourceRange(*SM, S);
-      RangeKindToGUIDMap varNames;
-      varNames[STMT] = stmtSymbol;
-      varNames[IFCONDITION] = conditionSymbol;      
-      printSymbol(os, varNames);
-      printSourceRanges(os, varNames, oRanges);
-
-      VisitStmt(S);
+      _debug("IN\tVisitStmt\n");
       
+      SymbolSet outerScopeSymbols = stmtSymbols; // Save the stmt-level scope
+      
+      for (Stmt::child_iterator ChildS = S->child_begin();
+           ChildS != S->child_end();
+           ++ChildS)
+      {
+        if (*ChildS)
+        {
+          stmtSymbols.clear(); // Each stmt has it's own sub-stmt-level scope
+          Visit(*ChildS);      // Visit all children
+          AddStmt(*ChildS);    // Add a symbol
+          printLine(os, *ChildS, stmtSymbols);
+        }
+      }
+      
+      stmtSymbols = outerScopeSymbols; // Restore the stmt-level scope
+      
+      _debug("OUT\tVisitStmt\n");
     }
-
     
-
     void VisitCompoundStmt(CompoundStmt * S)
     {
-      _debug("IN\tVisitCompountStmt\n");
-
-      INCEPTION_POINT++;
-      SymbolSet prevScopeSymbols = scopeSymbols;
-      scopeSymbols.clear();
-
-      for (CompoundStmt::body_iterator CS = S->body_begin(), CSEnd = S->body_end(); CS != CSEnd; ++CS)
-	{
-	  stmtSymbols.clear();
-				
-	  Visit(*CS);
-				
-	  DumpSymbols(*CS, AddStmt(*CS), stmtSymbols);
-	}
-
-      DumpSymbols(S, AddStmt(S), scopeSymbols);
-
-      INCEPTION_POINT--;
-      scopeSymbols = prevScopeSymbols;
-
-      _debug("OUT\tVisitCompountStmt\n");
+      _debug("IN\tVisitCompoundStmt\n");
+      
+      SymbolSet prevScopeSymbols = compoundStmtSymbols; // Save the compoundStmt-level scope
+      compoundStmtSymbols.clear();                      // Each compound block has it's own compoundStmt-level scope
+      
+      for (CompoundStmt::body_iterator BodyS = S->body_begin();
+           BodyS != S->body_end();
+           ++BodyS)
+      {
+        stmtSymbols.clear();              // Each line has it's own stmt-level scope
+        Visit(*BodyS);                    // Visit the statement
+        String stmtSym = AddStmt(*BodyS); // Each line gets a symbol
+        printLine(os, *BodyS, stmtSymbols);
+        
+        compoundStmtSymbols.insert(stmtSym); // Add the line to the dependencies for the compoundStmt-level scope
+      }
+      
+      AddStmt(S); // Each block gets a symbol
+      printLine(os, S, compoundStmtSymbols);
+      
+      compoundStmtSymbols = prevScopeSymbols; // Restore the compoundStmt-level scope
+      
+      _debug("OUT\tVisitCompoundStmt\n");
     }
-
+    
     void VisitDeclStmt(DeclStmt * S)
     {
       _debug("IN\tVisitDeclStmt\n");
-
-      for (DeclStmt::decl_iterator I = S->decl_begin(), E = S->decl_end(); I != E; ++I)
-	AddDecl(*I);
-
+      
+      for (DeclStmt::decl_iterator DeclS = S->decl_begin();
+           DeclS != S->decl_end();
+           ++DeclS)
+      {
+        String declSym = AddDecl(*DeclS); // Each decl gets a symbol
+        stmtSymbols.insert(declSym);      // Add the line to the dependencies for the compound block
+      }
+      
       _debug("OUT\tVisitDeclStmt\n");
     }
-
+    
     void VisitDeclRefExpr(DeclRefExpr * E)
     {
       _debug("IN\tVisitDeclRefExpr\n");
-
-      VarMap::const_iterator it = scopeMap.find(E->getDecl());
-      std::string sym = it->second;
-
-      scopeSymbols.insert(sym);
-      stmtSymbols.insert(sym);
-
+      
+      String sym = declToSymbolMap[E->getDecl()]; // Look up the symbol from the associated declaration
+      
+      stmtSymbols.insert(sym);  // Add the symbol to the stmt-level scope
+      compoundStmtSymbols.insert(sym); // Add the symbol to the compoundStmt-level scope
+      
       _debug("OUT\tVisitDeclRefExpr\n");
     }
-
+    
   private:
     void printStmtKind(Stmt *S)
     {
       os << "%% " << S->getStmtClassName() << "\n";
     }
     
-
+    void printLine(RawOS & os,
+                   Expr * E,
+                   SymbolSet dependantSymbols)
+    {
+      String symbol = stmtToSymbolMap[E];
+      
+      RangeKindToGUIDMap varNames;
+      varNames[EXPR] = symbol;
+      
+      printSymbol(os, varNames);
+      printDependencies(os, symbol, dependantSymbols);
+      
+      os << "\n";
+      os.flush();
+    }
+    
+    void printLine(RawOS & os,
+                   Stmt * S,
+                   SymbolSet dependantSymbols)
+    {
+      String symbol = stmtToSymbolMap[S];
+      
+      RangeKindToGUIDMap varNames;
+      varNames[STMT] = symbol;
+      
+      printSymbol(os, varNames);
+      printDependencies(os, symbol, dependantSymbols);
+      
+      os << "\n";
+      os.flush();
+    }
+    
   private:
-    VarMap scopeMap;
-    StmtMap stmtMap;
-    llvm::raw_fd_ostream & os;
+    DeclToSymMap declToSymbolMap;
+    SymToDeclMap symbolToDeclMap;
+    StmtToSymMap stmtToSymbolMap;
+    SymToStmtMap symbolToStmtMap;
+    RawOS & os;
     SourceManager * SM;
-    SymbolSet scopeSymbols, stmtSymbols;
+    SymbolSet stmtSymbols;
+    SymbolSet compoundStmtSymbols;
   };
-
+  
   class ConstraintGenerator : public ASTConsumer,
                               public DeclVisitor<ConstraintGenerator>
   {
   public:
-    ConstraintGenerator(llvm::raw_fd_ostream & stream)
+    ConstraintGenerator(RawOS & stream)
       :os(stream),
        astContext(NULL)
     {
     }
-
+    
     virtual ~ConstraintGenerator() { }
-
+    
     virtual void Initialize(ASTContext & Context)
     {
       astContext = &Context;
       SM = &astContext->getSourceManager();
     }
-
+    
     virtual void HandleTopLevelDecl(DeclGroupRef DG)
     {
       _debug("IN\tHandleTopLevelDecl\n");
-      std::cerr << "TOPLEVEL\n";
       
       for (DeclGroupRef::iterator i = DG.begin(), e = DG.end(); i != e; ++i)
-	{
-	  Decl *D = *i;
-	  // Don't generate constraints for decls that are not in the main
-	  // file, since we can't remove those anyway.
-	  SourceRange sr = D->getSourceRange();
-	  if(!isInMainFile(sr)) return;
-
-	  if(declToLogicVarMap.find(D) == declToLogicVarMap.end())
-	    {
-	      std::cerr << "Visiting\n";
-	      // std::cerr << typeid(*D).name() << std::endl;
-	      Visit(D);
-	      std::cerr << "DONE\n";
-	    
-	    }
-	
-	}
-
+      {
+        Decl *D = *i;
+        
+        // Don't generate constraints for decls that are not in the main
+        // file, since we can't remove those anyway.
+        SourceRange sr = D->getSourceRange();
+        if(isInMainFile(sr))
+        {
+          if(declToSymbolMap.find(D) == declToSymbolMap.end())
+          {
+            //_debug("Visiting\n");
+            //_debug(typeid(*D).name());
+            //_debug("\n");
+            
+            Visit(D);
+            
+            //_debug("DONE\n");
+          }
+        }
+      }
+      
       os.flush();
+      
       _debug("OUT\tHandleTopLevelDecl\n");
     }
 
     virtual void HandleTagDeclDefinition(TagDecl *D)
     {
       _debug("IN\tHandleTagDeclDefinition\n");
-      std::cerr << "TAGDECL\n";
       
       // Don't generate constraints for decls that are not in the main
       // file, since we can't remove those anyway.
       SourceRange sr = D->getSourceRange();
-      if(!isInMainFile(sr)) return;
-
-      if(declToLogicVarMap.find(D) == declToLogicVarMap.end())
+      if(!isInMainFile(sr))
+      {
+        return;
+      }
+      
+      if(declToSymbolMap.find(D) == declToSymbolMap.end())
+      {
         Visit(D);
-
+      }
+      
       os.flush();
       _debug("OUT\tHandleTagDeclDefinition\n");
     }
@@ -296,43 +341,45 @@ namespace
     void VisitTypedefDecl(TypedefDecl *D)
     {
       _debug("IN\tVisitTypedefDecl\n");
-
-      std::string var = gensymDecl(D);
-      // os << "# ";
-      // D->print(os);
-      // os << "\n";
-      printDeclKindAndName(D);      
-
-      OffsetRanges oRanges = getRealSourceRange(*SM, D);
+      
+      String var = gensymDecl(D);
+      printDeclKindAndName(D);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
+      
       printSymbol(os, varNames);
-      printSourceRanges(os, varNames, oRanges);
-
-      std::string dependsOnDecl = getDeclarationForType(D->getUnderlyingType());
+      printSourceRanges(os, oRanges);
+      
+      String dependsOnDecl = getDeclarationForType(D->getUnderlyingType());
       printDependency(os, var, dependsOnDecl);
-
+      
       os << "\n";
-
       os.flush();
+      
       _debug("OUT\tVisitTypedefDecl\n");
     }
 
     void VisitEnumDecl(EnumDecl *D)
     {
       _debug("IN\tVisitEnumDecl\n");
-
-      std::string var = gensymDecl(D);
+      
+      String var = gensymDecl(D);
       printDeclKindAndName(D);
-
-      OffsetRanges oRanges = getRealSourceRange(*SM, D);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
+      
       printSymbol(os, varNames);
-      printSourceRanges(os, varNames, oRanges);
+      printSourceRanges(os, oRanges);
+      
       // No dependencies
       os << "\n";
-			
+      
       os.flush();
       _debug("OUT\tVisitEnumDecl\n");
     }
@@ -340,37 +387,43 @@ namespace
     void VisitRecordDecl(RecordDecl *D)
     {
       _debug("IN\tVisitRecordDecl\n");
+      
+      String var = gensymDecl(D);
       printDeclKindAndName(D, D->getKindName());
-      std::string var = gensymDecl(D);
-
-      OffsetRanges oRanges = getRealSourceRange(*SM, D);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
+      
       printSymbol(os, varNames);
-      printSourceRanges(os, varNames, oRanges);
-
-      RecordDecl::field_iterator fIt;      
-      for(fIt = D->field_begin(); fIt != D->field_end(); fIt++)
-	{
-	  // print dependencies
-	  if(fIt->isAnonymousStructOrUnion())
-	    continue;
-	  std::string dependsOnDecl = getDeclarationForType(fIt->getType());
-	  printDependency(os, var, dependsOnDecl);	  
-	}
+      printSourceRanges(os, oRanges);
+      
+      for(RecordDecl::field_iterator field = D->field_begin();
+          field != D->field_end();
+          ++field)
+      {
+        // print dependencies
+        if(field->isAnonymousStructOrUnion())
+        {
+          continue;
+        }
+        
+        String dependsOnDecl = getDeclarationForType(field->getType());
+        printDependency(os, var, dependsOnDecl);
+      }
       
       os << "\n";
-      
       os.flush();
+      
       _debug("OUT\tVisitRecordDecl\n");
     }
-
+    
     void VisitCXXRecordDecl(CXXRecordDecl *D)
     {
-      
-      std::cerr << "HAHA\n";      
+      _debug("HAHA\n");
     }
-
+    
     // void VisitTemplateDecl(TemplateDecl *D)
     // {
     //   std::cerr << "VisitTemplateDecl\n";
@@ -378,12 +431,12 @@ namespace
 
     void VisitClassTemplateDecl(ClassTemplateDecl *D)
     {
-      std::cerr << "VisitClassTemplateDecl\n";
+      _debug("VisitClassTemplateDecl\n");
     }
     
     void VisitFunctionTemplateDecl(FunctionTemplateDecl *D)
     {
-      std::cerr << "VisitFunctionTemplateDecl\n";
+      _debug("VisitFunctionTemplateDecl\n");
     }
     
     // void VisitTemplateTemplateParmDecl(TemplateTemplateParmDecl *D)
@@ -391,7 +444,6 @@ namespace
     //   std::cerr << "HMM\n";
     // }
     
-
     void VisitVarDecl(VarDecl *D)
     {
       _debug("IN\tVisitVarDecl\n");
@@ -400,95 +452,119 @@ namespace
       // dependencies on variables referenced there (the initializer
       // itself should depend on them, instead of the entire decl).
       // This may not be as much of an issue for global decls
-      std::string var = gensymDecl(D);
-      os << "# ";
-      D->print(os);
-      os << "\n";
-
-      OffsetRanges oRanges = getRealSourceRange(*SM, D);
+      
+      String var = gensymDecl(D);
+      // os << "# ";
+      // D->print(os);
+      // os << "\n";
+      printDeclKindAndName(D);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
+      
       printSymbol(os, varNames);
-      printSourceRanges(os, varNames, oRanges);
-
+      printSourceRanges(os, oRanges);
+      
       QualType t = D->getType();
-      std::string varType = getDeclarationForType(t);
+      String varType = getDeclarationForType(t);
+      
       if(!varType.empty())
+      {
         printDependency(os, var, varType);
-
+      }
+      
       os << "\n";
-
       os.flush();
+      
       _debug("OUT\tVisitVarDecl\n");
     }
-
+    
     void VisitFunctionDecl(FunctionDecl *D)
     {
       _debug("IN\tVisitFunctionDecl\n");
+      
       FunctionTemplateDecl* FT;
       FT = D->getDescribedFunctionTemplate();
+      
       if(FT) // if FunctionDecl is in fact a FT
-	Visit(D->getDescribedFunctionTemplate());
+      {
+        Visit(D->getDescribedFunctionTemplate());
+      }
+      
       FT = D->getPrimaryTemplate();
       if(FT) // if this is a FT instantiation or specialization
-	std::cerr << "create dependency to orig template\n";
+      {
+        std::cerr << "create dependency to orig template\n";
+      }
+      
       if(D->isMain())
-	std::cerr << "Visiting MAIN\n";
-
+      {
+        std::cerr << "Visiting MAIN\n";
+      }
+      
       // else create symbol/SR for function
       // then descend into body, creating dependencies from contained stmts to 
       // function containing them.
-
-      ConstraintVisitor c(os, declToLogicVarMap, SM);
+      
+      ConstraintVisitor c(os, declToSymbolMap, symbolToDeclMap, SM);
+      
       if (D->hasBody())
-	{
-	  c.Visit(D->getBody());
-	}
-
+      {
+        c.Visit(D->getBody());
+      }
+      
       os.flush();
-
+      
       _debug("OUT\tVisitFunctionDecl\n");
     }
-
+    
   private:
-    std::string gensymDecl(Decl *D)
+    String gensymDecl(Decl *D)
     {
-      std::string newGUID = getNewGUID();
-      declToLogicVarMap[D] = newGUID;
-      return newGUID;
+      String symbol = getNewGUID();
+      
+      declToSymbolMap[D] = symbol;
+      symbolToDeclMap[symbol] = D;
+      
+      return symbol;
     }
-
-    std::string getDeclarationForType(QualType qt)
+    
+    String getDeclarationForType(QualType qt)
     {
       Type* T = qt.getTypePtr();
+      
       DeclForTypeVisitor dftv;
-      Decl* d = dftv.Visit(T);
-      std::map<Decl*, std::string>::const_iterator it = declToLogicVarMap.find(d);
-      if(it == declToLogicVarMap.end()) return "";
-
-      return it->second;
+      Decl* D = dftv.Visit(T);
+      
+      return declToSymbolMap[D];
     }
-
+    
     void printDeclKindAndName(NamedDecl *D, const char* kindName="")
     {
-      std::string nameOfKind(D->getDeclKindName());
+      String nameOfKind(D->getDeclKindName());
+      
       nameOfKind[0] = tolower(nameOfKind[0]);
-      os << "%% " << ((strlen(kindName) == 0) ? nameOfKind : kindName) << " " << D->getQualifiedNameAsString() << "\n";
-    }    
-
+      
+      os << "%% " << ((strlen(kindName) == 0) ? nameOfKind : kindName)
+         << " " << D->getQualifiedNameAsString() << "\n";
+    }
+    
     bool isInMainFile(SourceRange sr)
     {
       FullSourceLoc sl(sr.getBegin(), *SM);
       return !sl.isInSystemHeader(); //SM->isFromMainFile(sr.getBegin());
     }
-
+    
   private:
-    std::map<Decl*, std::string> declToLogicVarMap;
-    llvm::raw_fd_ostream & os;
+    DeclToSymMap declToSymbolMap;
+    SymToDeclMap symbolToDeclMap;
+    RawOS & os;
     ASTContext * astContext;
     SourceManager * SM;
   };
-
+  
   class GenerateConstraintsAction : public PluginASTAction
   {
   public:
@@ -496,101 +572,136 @@ namespace
       :os(NULL)
     {
     }
-
+    
     virtual ~GenerateConstraintsAction()
     {
     }
-
+    
   protected:
     ASTConsumer* CreateASTConsumer(CompilerInstance &CI, llvm::StringRef sref)
     {
       return new ConstraintGenerator(*os);
     }
-
+    
     bool ParseArgs(const CompilerInstance& CI,
-		   const std::vector<std::string> & args)
+                   const std::vector<String> & args)
     {
       for(size_t i = 0; i < args.size(); ++i)
-	{
-	  std::cout << "Arg " << i << " = " << args[i] << std::endl;
-	}
-
-      os = new llvm::raw_fd_ostream("out.txt", streamErrors);
+      {
+        std::cout << "Arg " << i << " = " << args[i] << std::endl;
+      }
+      
+      os = new RawOS("out.txt", streamErrors);
+      
       if(args.size() > 0 && args[0] == "help")
+      {
         PrintHelp(llvm::errs());
+      }
+      
       return true;
     }
-
+    
     void PrintHelp(llvm::raw_ostream& os)
     {
       os << "GenerateConstraints help\n";
     }
-
-  private:
-    llvm::raw_fd_ostream * os;
-    std::string streamErrors;
-  };
-
-  // Utility functions
-  void printSymbol(llvm::raw_fd_ostream &os,
-		   RangeKindToGUIDMap varNames)
-  {
-    RangeKindToGUIDMap::iterator it;
-    for(it=varNames.begin(); it != varNames.end(); it++)
-      {
-	std::string predName;
-	switch((*it).first)
-	  {
-	  case DECL:
-	    predName = "isDeclaration";
-	    break;
-	  case IFCONDITION:
-	    predName = "isCondition";
-	    break;
-	  case STMT:
-	    predName = "isStatement";
-	    break;
-	  case COMPOUNDSTMT:
-	    predName = "isCompoundStatement";
-	    break;
-	  case INITIALIZER:
-	    predName = "isInitializer";
-	    break;
-	  default:
-	    assert(0 && "No symbol found for RangeQualifier");
-	  }
-	os << predName << "(" << (*it).second << ").\n";
-      }
-    os.flush();
-  }
     
-  void printSourceRanges(llvm::raw_fd_ostream &os, 
-			 RangeKindToGUIDMap varNames, 
-			 OffsetRanges & oRanges)
+  private:
+    RawOS * os;
+    String streamErrors;
+  };
+  
+  // Utility functions
+  void printSymbol(RawOS &os,
+                   RangeKindToGUIDMap varNames)
   {
-    OffsetRanges::iterator it;
-    for(it=oRanges.begin(); it != oRanges.end(); it++)
+    for(RangeKindToGUIDMap::iterator it = varNames.begin();
+        it != varNames.end();
+        it++)
+    {
+      String predName;
+      
+      switch ((*it).first)
       {
-	os << "sourceRange(" << varNames[it->getRangeType()] << ","
-	   << it->getBegin() << ","
-	   << it->getEnd() << ","
-	   << "'" << it->getFileName() <<"').\n";
+        case DECL:
+          predName = "isDeclaration";
+          break;
+          
+        case IFCONDITION:
+          predName = "isCondition";
+          break;
+          
+        case STMT:
+          predName = "isStatement";
+          break;
+          
+        case COMPOUNDSTMT:
+          predName = "isCompoundStatement";
+          break;
+          
+        case INITIALIZER:
+          predName = "isInitializer";
+          break;
+          
+        case EXPR:
+          predName = "isExpr";
+          break;
+          
+        default:
+          assert(0 && "No symbol found for RangeQualifier");
       }
+      
+      os << predName << "(" << (*it).second << ").\n";
+    }
+    
     os.flush();
   }
-
-  void printDependency(llvm::raw_fd_ostream &os,
-		       const std::string & logVar,
-		       const std::string & dependency)
+  
+  void printSourceRanges(RawOS & os,
+                         OffsetRanges & oRanges)
   {
-    if(!dependency.empty())
-      os << "dependsOn(" << logVar << ","
-	 << dependency << ").\n";
-    os.flush();
+    for(OffsetRanges::iterator it = oRanges.begin();
+        it != oRanges.end();
+        it++)
+    {
+      RangeKindToGUIDMap varNames;
+      varNames[it->getRangeType()] = it->getSymbol();
+      printSymbol(os, varNames);
+      
+      os << "sourceRange(" << it->getSymbol() << ","
+         << it->getBegin() << ","
+         << it->getEnd() << ","
+         << "'" << it->getFileName() <<"').\n";
+      os.flush();
+    }
   }
-
-
-
+  
+  void printDependencies(RawOS & os,
+                         const String & symbol,
+                         const SymbolSet & dependantSymbols)
+  {
+    for (SymbolSet::iterator it = dependantSymbols.begin();
+         it != dependantSymbols.end();
+         it++)
+    {
+      printDependency(os, symbol, (*it));
+    }
+  }
+  
+  void printDependency(RawOS &os,
+                       const String & symbol,
+                       const String & dependantSymbol)
+  {
+    if (!dependantSymbol.empty())
+    {
+      if (dependantSymbol.compare(symbol) != 0)
+      {
+        os << "dependsOn(" << symbol << ","
+           << dependantSymbol << ").\n";
+        os.flush();
+      }
+    }
+  }
 }
 
 static FrontendPluginRegistry::Add<GenerateConstraintsAction>
