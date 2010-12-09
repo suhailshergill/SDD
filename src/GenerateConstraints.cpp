@@ -60,10 +60,10 @@ namespace
   
   inline void _debug(String s)
   {
-  	/*
+    /*
     std::cerr << s;
     std::cerr.flush();
-  	*/
+    */
   }
   
   unsigned int GUID_COUNT = 0;
@@ -119,9 +119,6 @@ namespace
       os << "\n";
       os.flush();
       
-      stmtSymbols.insert(symbol);         // Add the line to the dependencies for the stmt-level scope
-      compoundStmtSymbols.insert(symbol); // Add the line to the dependencies for the compoundStmt-level scope
-      
       return symbol;
     }
     
@@ -137,17 +134,30 @@ namespace
       os << "\n";
       os.flush();
       
-      stmtSymbols.insert(symbol);         // Add the line to the dependencies for the stmt-level scope
-      compoundStmtSymbols.insert(symbol); // Add the line to the dependencies for the compoundStmt-level scope
-      
       return symbol;
+    }
+    
+    void VisitExpr(Expr * E)
+    {
+      _debug("IN\tVisitExpr\n");
+      
+      for (Stmt::child_iterator ChildE = E->child_begin();
+           ChildE != E->child_end();
+           ++ChildE)
+      {
+        if (*ChildE)
+        {
+          Visit(*ChildE);
+          stmtSymbols.insert(AddStmt(*ChildE));
+        }
+      }
+      
+      _debug("OUT\tVisitExpr\n");
     }
     
     void VisitStmt(Stmt * S)
     {
       _debug("IN\tVisitStmt\n");
-      
-      SymbolSet outerScopeSymbols = stmtSymbols; // Save the stmt-level scope
       
       for (Stmt::child_iterator ChildS = S->child_begin();
            ChildS != S->child_end();
@@ -155,14 +165,20 @@ namespace
       {
         if (*ChildS)
         {
-          stmtSymbols.clear(); // Each stmt has it's own sub-stmt-level scope
-          Visit(*ChildS);      // Visit all children
-          AddStmt(*ChildS);    // Add a symbol
-          printLine(os, *ChildS, stmtSymbols);
+          stmtSymbols.clear();
+          Visit(*ChildS);
+          stmtSymbols.insert(AddStmt(*ChildS));
+          
+          if (Expr::classof(*ChildS)) 
+          {
+            printLine(os, static_cast<Expr *>(*ChildS), stmtSymbols);
+          }
+          else
+          {
+            printLine(os, *ChildS, stmtSymbols);
+          }
         }
       }
-      
-      stmtSymbols = outerScopeSymbols; // Restore the stmt-level scope
       
       _debug("OUT\tVisitStmt\n");
     }
@@ -171,25 +187,23 @@ namespace
     {
       _debug("IN\tVisitCompoundStmt\n");
       
-      SymbolSet prevScopeSymbols = compoundStmtSymbols; // Save the compoundStmt-level scope
-      compoundStmtSymbols.clear();                      // Each compound block has it's own compoundStmt-level scope
-      
       for (CompoundStmt::body_iterator BodyS = S->body_begin();
            BodyS != S->body_end();
            ++BodyS)
       {
-        stmtSymbols.clear();              // Each line has it's own stmt-level scope
-        Visit(*BodyS);                    // Visit the statement
-        String stmtSym = AddStmt(*BodyS); // Each line gets a symbol
-        printLine(os, *BodyS, stmtSymbols);
+        stmtSymbols.clear();
+        Visit(*BodyS);
+        stmtSymbols.insert(AddStmt(*BodyS));
         
-        compoundStmtSymbols.insert(stmtSym); // Add the line to the dependencies for the compoundStmt-level scope
+        if (Expr::classof(*BodyS)) 
+        {
+          printLine(os, static_cast<Expr *>(*BodyS), stmtSymbols);
+        }
+        else
+        {
+          printLine(os, *BodyS, stmtSymbols);
+        }
       }
-      
-      AddStmt(S); // Each block gets a symbol
-      printLine(os, S, compoundStmtSymbols);
-      
-      compoundStmtSymbols = prevScopeSymbols; // Restore the compoundStmt-level scope
       
       _debug("OUT\tVisitCompoundStmt\n");
     }
@@ -202,8 +216,7 @@ namespace
            DeclS != S->decl_end();
            ++DeclS)
       {
-        String declSym = AddDecl(*DeclS); // Each decl gets a symbol
-        stmtSymbols.insert(declSym);      // Add the line to the dependencies for the compound block
+        stmtSymbols.insert(AddDecl(*DeclS));
       }
       
       _debug("OUT\tVisitDeclStmt\n");
@@ -213,12 +226,26 @@ namespace
     {
       _debug("IN\tVisitDeclRefExpr\n");
       
-      String sym = declToSymbolMap[E->getDecl()]; // Look up the symbol from the associated declaration
-      
-      stmtSymbols.insert(sym);  // Add the symbol to the stmt-level scope
-      compoundStmtSymbols.insert(sym); // Add the symbol to the compoundStmt-level scope
+      // Look up the symbol from the associated declaration
+      // and add it to the stmt-level scope
+      Decl * declPoint = E->getDecl();
+      String declSym = declToSymbolMap[declPoint];
+      stmtSymbols.insert(declSym);
       
       _debug("OUT\tVisitDeclRefExpr\n");
+    }
+    
+    void VisitBlockDeclRefExpr(BlockDeclRefExpr * E)
+    {
+      _debug("IN\tVisitBlockDeclRefExpr\n");
+      
+      // Look up the symbol from the associated declaration
+      // and add it to the stmt-level scope
+      Decl * declPoint = E->getDecl();
+      String declSym = declToSymbolMap[declPoint];
+      stmtSymbols.insert(declSym);
+      
+      _debug("OUT\tVisitBlockDeclRefExpr\n");
     }
     
   private:
@@ -267,7 +294,6 @@ namespace
     RawOS & os;
     SourceManager * SM;
     SymbolSet stmtSymbols;
-    SymbolSet compoundStmtSymbols;
   };
   
   class ConstraintGenerator : public ASTConsumer,
@@ -303,13 +329,7 @@ namespace
         {
           if(declToSymbolMap.find(D) == declToSymbolMap.end())
           {
-            //_debug("Visiting\n");
-            //_debug(typeid(*D).name());
-            //_debug("\n");
-            
             Visit(D);
-            
-            //_debug("DONE\n");
           }
         }
       }
