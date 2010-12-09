@@ -56,7 +56,7 @@ private:
   RangeQualifier rangeType;
 };
 
-inline void _debug(std::string s) { /* std::cerr << s; std::cerr.flush(); */ }
+inline void _debug(std::string s) { std::cerr << s; std::cerr.flush(); }
 
 typedef std::map<clang::Decl *, std::string> DeclToSymMap;
 typedef std::map<clang::Stmt *, std::string> StmtToSymMap;

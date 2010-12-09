@@ -60,10 +60,8 @@ namespace
   
   inline void _debug(String s)
   {
-    /*
-    std::cerr << s;
-    std::cerr.flush();
-    */
+    //std::cerr << s;
+    //std::cerr.flush();
   }
   
   unsigned int GUID_COUNT = 0;
@@ -159,6 +157,8 @@ namespace
     {
       _debug("IN\tVisitStmt\n");
       
+      SymbolSet outerStmtSymbols;
+      
       for (Stmt::child_iterator ChildS = S->child_begin();
            ChildS != S->child_end();
            ++ChildS)
@@ -167,7 +167,9 @@ namespace
         {
           stmtSymbols.clear();
           Visit(*ChildS);
-          stmtSymbols.insert(AddStmt(*ChildS));
+          String sym = AddStmt(*ChildS);
+          stmtSymbols.insert(sym);
+          outerStmtSymbols.insert(sym);
           
           if (Expr::classof(*ChildS)) 
           {
@@ -179,6 +181,8 @@ namespace
           }
         }
       }
+      
+      stmtSymbols = outerStmtSymbols;
       
       _debug("OUT\tVisitStmt\n");
     }
@@ -204,6 +208,8 @@ namespace
           printLine(os, *BodyS, stmtSymbols);
         }
       }
+      
+      stmtSymbols.clear();
       
       _debug("OUT\tVisitCompoundStmt\n");
     }

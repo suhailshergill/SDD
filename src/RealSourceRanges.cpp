@@ -247,6 +247,43 @@ namespace
     {
     }
     
+    OffsetRanges VisitWhileStmt(WhileStmt * S)
+    {
+      OffsetRanges oRanges;
+      
+      Expr* C = S->getCond();
+      FullSourceLoc condB(C->getLocStart(), SM);
+      FullSourceLoc condE(C->getLocEnd(), SM);
+      size_t posCondB = scanBackTo("(", condB, false);
+      size_t posCondE = scanForwardTo(")", condE, false);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[C],
+                                 posCondB,
+                                 posCondE,
+                                 condB.getBuffer()->getBufferIdentifier(),
+                                 IFCONDITION));
+      _debug("WhileStmt::IFCONDITION     - ");
+      _debug(stmtToSymbolMap[C]);
+      _debug("\n");
+      
+      Stmt* B = S->getBody();
+      FullSourceLoc bodyB(B->getLocStart(), SM);
+      FullSourceLoc bodyE(B->getLocEnd(), SM);
+      size_t posBodyB = scanBackTo("while", bodyB, true);
+      size_t posBodyE = scanForwardTo("}", bodyE, true);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[B],
+                                 posBodyB,
+                                 posBodyE,
+                                 bodyB.getBuffer()->getBufferIdentifier(),
+                                 COMPOUNDSTMT));
+      _debug("WhileStmt::COMPOUNDSTMT    - ");
+      _debug(stmtToSymbolMap[B]);
+      _debug("\n");
+      
+      return oRanges;
+    }
+    
     OffsetRanges VisitIfStmt(IfStmt * S)
     {
       OffsetRanges oRanges;
@@ -277,8 +314,8 @@ namespace
                                  ifBegin,
                                  ifEnd,
                                  ifBlockB.getBuffer()->getBufferIdentifier(),
-                                 STMT));
-      _debug("IfStmt::STMT               - ");
+                                 COMPOUNDSTMT));
+      _debug("IfStmt::COMPOUNDSTMT       - ");
       _debug(stmtToSymbolMap[T]);
       _debug("\n");
       
