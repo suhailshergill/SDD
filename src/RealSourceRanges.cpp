@@ -284,6 +284,73 @@ namespace
       return oRanges;
     }
     
+    OffsetRanges VisitForStmt(ForStmt * S)
+    {
+      OffsetRanges oRanges;
+      
+      Stmt* init = S->getInit();
+      FullSourceLoc initB(init->getLocStart(), SM);
+      FullSourceLoc initE(init->getLocEnd(), SM);
+      size_t posInitB = scanBackTo("(", initB, false);
+      size_t posInitE = scanForwardTo(";", initE, false);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[init],
+                                 posInitB,
+                                 posInitE,
+                                 initB.getBuffer()->getBufferIdentifier(),
+                                 INITIALIZER));
+      _debug("ForStmt::INITIALIZER       - ");
+      _debug(stmtToSymbolMap[init]);
+      _debug("\n");
+      
+      Expr* C = S->getCond();
+      FullSourceLoc ifConditionB(C->getLocStart(), SM);
+      FullSourceLoc ifConditionE(C->getLocEnd(), SM);
+      size_t conditionBegin = scanBackTo(";", ifConditionB, false);
+      size_t conditionEnd = scanForwardTo(";", ifConditionE, false);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[C],
+                                 conditionBegin,
+                                 conditionEnd,
+                                 ifConditionB.getBuffer()->getBufferIdentifier(),
+                                 IFCONDITION));
+      _debug("ForStmt::IFCONDITION       - ");
+      _debug(stmtToSymbolMap[C]);
+      _debug("\n");
+      
+      Expr* inc = S->getInc();
+      FullSourceLoc incB(inc->getLocStart(), SM);
+      FullSourceLoc incE(inc->getLocEnd(), SM);
+      size_t posIncB = scanBackTo(";", incB, false);
+      size_t posIncE = scanForwardTo(")", incE, false);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[inc],
+                                 posIncB,
+                                 posIncE,
+                                 incB.getBuffer()->getBufferIdentifier(),
+                                 EXPR));
+      _debug("ForStmt::EXPR              - ");
+      _debug(stmtToSymbolMap[inc]);
+      _debug("\n");
+      
+      Stmt* B = S->getBody();
+      FullSourceLoc bodyB(B->getLocStart(), SM);
+      FullSourceLoc bodyE(B->getLocEnd(), SM);
+      size_t posBodyB = scanBackTo("for", bodyB, true);
+      size_t posBodyE = scanForwardTo("}", bodyE, true);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[B],
+                                 posBodyB,
+                                 posBodyE,
+                                 bodyB.getBuffer()->getBufferIdentifier(),
+                                 COMPOUNDSTMT));
+      _debug("ForStmt::COMPOUNDSTMT      - ");
+      _debug(stmtToSymbolMap[B]);
+      _debug("\n");
+      
+      return oRanges;
+    }
+    
     OffsetRanges VisitIfStmt(IfStmt * S)
     {
       OffsetRanges oRanges;
