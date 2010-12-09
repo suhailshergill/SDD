@@ -247,6 +247,42 @@ namespace
     {
     }
     
+    OffsetRanges VisitDoStmt(DoStmt * S)
+    {
+      OffsetRanges oRanges;
+      
+      Expr* C = S->getCond();
+      FullSourceLoc condB(C->getLocStart(), SM);
+      FullSourceLoc condE(C->getLocEnd(), SM);
+      size_t posCondB = scanBackTo("(", condB, false);
+      size_t posCondE = scanForwardTo(")", condE, false);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[C],
+                                 posCondB,
+                                 posCondE,
+                                 condB.getBuffer()->getBufferIdentifier(),
+                                 IFCONDITION));
+      _debug("DoStmt::IFCONDITION        - ");
+      _debug(stmtToSymbolMap[C]);
+      _debug("\n");
+      
+      Stmt* B = S->getBody();
+      FullSourceLoc bodyB(B->getLocStart(), SM);
+      size_t posBodyB = scanBackTo("do", bodyB, true);
+      size_t posBodyE = scanForwardTo(";", condE, true);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[S],
+                                 posBodyB,
+                                 posBodyE,
+                                 bodyB.getBuffer()->getBufferIdentifier(),
+                                 STMT));
+      _debug("DoStmt::STMT               - ");
+      _debug(stmtToSymbolMap[S]);
+      _debug("\n");
+      
+      return oRanges;
+    }
+    
     OffsetRanges VisitWhileStmt(WhileStmt * S)
     {
       OffsetRanges oRanges;
@@ -272,13 +308,13 @@ namespace
       size_t posBodyB = scanBackTo("while", bodyB, true);
       size_t posBodyE = scanForwardTo("}", bodyE, true);
       oRanges.insert(oRanges.begin(),
-                     OffsetRange(stmtToSymbolMap[B],
+                     OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
                                  posBodyE,
                                  bodyB.getBuffer()->getBufferIdentifier(),
-                                 COMPOUNDSTMT));
-      _debug("WhileStmt::COMPOUNDSTMT    - ");
-      _debug(stmtToSymbolMap[B]);
+                                 STMT));
+      _debug("WhileStmt::STMT            - ");
+      _debug(stmtToSymbolMap[S]);
       _debug("\n");
       
       return oRanges;
@@ -339,13 +375,13 @@ namespace
       size_t posBodyB = scanBackTo("for", bodyB, true);
       size_t posBodyE = scanForwardTo("}", bodyE, true);
       oRanges.insert(oRanges.begin(),
-                     OffsetRange(stmtToSymbolMap[B],
+                     OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
                                  posBodyE,
                                  bodyB.getBuffer()->getBufferIdentifier(),
-                                 COMPOUNDSTMT));
-      _debug("ForStmt::COMPOUNDSTMT      - ");
-      _debug(stmtToSymbolMap[B]);
+                                 STMT));
+      _debug("ForStmt::STMT              - ");
+      _debug(stmtToSymbolMap[S]);
       _debug("\n");
       
       return oRanges;
@@ -377,13 +413,13 @@ namespace
       size_t ifBegin = scanBackTo("if", ifBlockB, true);
       size_t ifEnd = scanForwardTo("}", ifBlockE, true);
       oRanges.insert(oRanges.begin(),
-                     OffsetRange(stmtToSymbolMap[T],
+                     OffsetRange(stmtToSymbolMap[S],
                                  ifBegin,
                                  ifEnd,
                                  ifBlockB.getBuffer()->getBufferIdentifier(),
-                                 COMPOUNDSTMT));
-      _debug("IfStmt::COMPOUNDSTMT       - ");
-      _debug(stmtToSymbolMap[T]);
+                                 STMT));
+      _debug("IfStmt::STMT               - ");
+      _debug(stmtToSymbolMap[S]);
       _debug("\n");
       
       return oRanges;
