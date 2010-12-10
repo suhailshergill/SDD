@@ -36,27 +36,12 @@ namespace
   typedef std::pair<Decl *, String> VarPair;
   typedef std::set<String> SymbolSet;
   
-  void printLine(RawOS & os,
-                 Expr * E,
-                 SymbolSet dependantSymbols);
-  
-  void printLine(RawOS & os,
-                 Stmt * S,
-                 SymbolSet dependantSymbols);
-  
-  void printSymbol(RawOS &os,
-                   RangeKindToGUIDMap varNames);
-  
-  void printSourceRanges(RawOS &os,
-                         OffsetRanges & oRanges);
-  
-  void printDependencies(RawOS &os,
-                         const String & logVar,
-                         const SymbolSet & dependantSymbols);
-  
-  void printDependency(RawOS &os,
-                       const String & logVar,
-                       const String & dependency);
+  void printLine(RawOS & os, Expr * E, SymbolSet dependantSymbols);
+  void printLine(RawOS & os, Stmt * S, SymbolSet dependantSymbols);
+  void printSymbol(RawOS &os, RangeKindToGUIDMap varNames);
+  void printSourceRanges(RawOS &os, OffsetRanges & oRanges);
+  void printDependencies(RawOS &os, String logVar, SymbolSet dependantSymbols);
+  void printDependency(RawOS &os, String logVar, String dependency);
   
   inline void _debug(String s)
   {
@@ -103,6 +88,19 @@ namespace
        os(stream),
        SM(mgr)
     {
+    }
+    
+    void printDeclMap(SymToDeclMap map)
+    {
+      llvm::raw_os_ostream fos(std::cerr);
+      
+      for (SymToDeclMap::iterator it = map.begin(); it != map.end(); it++)
+      {
+        fos << it->first << "\n\t# ";
+        (it->second)->print(fos);
+        fos << "\n";
+        fos.flush();
+      }
     }
     
     String AddStmt(Stmt * S)
@@ -222,7 +220,31 @@ namespace
            DeclS != S->decl_end();
            ++DeclS)
       {
-        stmtSymbols.insert(AddDecl(*DeclS));
+        String var = AddDecl(*DeclS);
+        
+        if (ValueDecl::classof(*DeclS))
+        {
+          ValueDecl *V = static_cast<ValueDecl *>(*DeclS);
+          
+          QualType qt = V->getType();
+          Type* T = qt.getTypePtr();
+          
+          DeclForTypeVisitor dftv;
+          Decl* D = dftv.Visit(T);
+          
+          String varType = declToSymbolMap[D];
+          
+          if(!varType.empty())
+          {
+            printDependency(os, var, varType);
+          }
+        }
+        else
+        {
+          assert(0 && "Not a ValueDecl?!?\n");
+        }
+        
+        stmtSymbols.insert(var);
       }
       
       _debug("OUT\tVisitDeclStmt\n");
@@ -234,9 +256,7 @@ namespace
       
       // Look up the symbol from the associated declaration
       // and add it to the stmt-level scope
-      Decl * declPoint = E->getDecl();
-      String declSym = declToSymbolMap[declPoint];
-      stmtSymbols.insert(declSym);
+      stmtSymbols.insert(declToSymbolMap[E->getDecl()]);
       
       _debug("OUT\tVisitDeclRefExpr\n");
     }
@@ -247,9 +267,7 @@ namespace
       
       // Look up the symbol from the associated declaration
       // and add it to the stmt-level scope
-      Decl * declPoint = E->getDecl();
-      String declSym = declToSymbolMap[declPoint];
-      stmtSymbols.insert(declSym);
+      stmtSymbols.insert(declToSymbolMap[E->getDecl()]);
       
       _debug("OUT\tVisitBlockDeclRefExpr\n");
     }
@@ -640,8 +658,7 @@ namespace
   };
   
   // Utility functions
-  void printSymbol(RawOS &os,
-                   RangeKindToGUIDMap varNames)
+  void printSymbol(RawOS &os, RangeKindToGUIDMap varNames)
   {
     for(RangeKindToGUIDMap::iterator it = varNames.begin();
         it != varNames.end();
@@ -685,8 +702,7 @@ namespace
     os.flush();
   }
   
-  void printSourceRanges(RawOS & os,
-                         OffsetRanges & oRanges)
+  void printSourceRanges(RawOS & os, OffsetRanges & oRanges)
   {
     for(OffsetRanges::iterator it = oRanges.begin();
         it != oRanges.end();
@@ -704,9 +720,7 @@ namespace
     }
   }
   
-  void printDependencies(RawOS & os,
-                         const String & symbol,
-                         const SymbolSet & dependantSymbols)
+  void printDependencies(RawOS & os, String symbol, SymbolSet dependantSymbols)
   {
     for (SymbolSet::iterator it = dependantSymbols.begin();
          it != dependantSymbols.end();
@@ -716,9 +730,7 @@ namespace
     }
   }
   
-  void printDependency(RawOS &os,
-                       const String & symbol,
-                       const String & dependantSymbol)
+  void printDependency(RawOS &os, String symbol, String dependantSymbol)
   {
     if (!dependantSymbol.empty())
     {
