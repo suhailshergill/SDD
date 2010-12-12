@@ -539,6 +539,12 @@ namespace
         Visit(D->getDescribedFunctionTemplate());
       }
       
+      for (unsigned int i = 0; i < D->getNumParams(); i++)
+      {
+      	ParmVarDecl *P = D->getParamDecl(i);
+      	Visit(P);
+      }
+      
       FT = D->getPrimaryTemplate();
       if(FT) // if this is a FT instantiation or specialization
       {
@@ -554,13 +560,28 @@ namespace
       // then descend into body, creating dependencies from contained stmts to 
       // function containing them.
       
-      ConstraintVisitor c(os, declToSymbolMap, symbolToDeclMap, SM);
-      
       if (D->hasBody())
       {
+        ConstraintVisitor c(os, declToSymbolMap, symbolToDeclMap, SM);
         c.Visit(D->getBody());
       }
       
+      
+      
+      String var = gensymDecl(D);
+      printDeclKindAndName(D);
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      RangeKindToGUIDMap varNames;
+      varNames[DECL] = var;
+      printSymbol(os, varNames);
+      printSourceRanges(os, oRanges);
+      QualType t = D->getResultType();
+      String varType = getDeclarationForType(t);
+      if (!varType.empty())
+      {
+        printDependency(os, var, varType);
+      }
+      os << '\n';
       os.flush();
       
       _debug("OUT\tVisitFunctionDecl\n");

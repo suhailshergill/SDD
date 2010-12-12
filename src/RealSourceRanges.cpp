@@ -11,6 +11,7 @@
 #include <clang/Basic/SourceManager.h>
 #include <llvm/Support/MemoryBuffer.h>
 #include <llvm/Support/raw_ostream.h>
+#include <llvm/Support/raw_os_ostream.h>
 
 #include "BaseException.hpp"
 #include "RealSourceRanges.hpp"
@@ -68,7 +69,10 @@ namespace
     }
   };
   
-  size_t scanBackTo(const std::string & keyword, FullSourceLoc sl, bool isInclusive=true)
+  size_t scanBackTo(const std::string & keyword,
+                    FullSourceLoc sl,
+                    bool isInclusive=true,
+                    bool orComma=false)
   {
     assert(!keyword.empty());
     
@@ -80,25 +84,35 @@ namespace
     size_t startingIndex = tokenStart - bufferStart;
     size_t currentIndex = startingIndex + 1;
     
-    while(--currentIndex >= 0)
+    while (currentIndex > 0)
     {
-      while(bufferStart[currentIndex] != keyword[0])
+      if (orComma && (bufferStart[currentIndex] == ','))
+      {
+        return (isInclusive ? currentIndex + 1 : currentIndex);
+      }
+      
+      while ((bufferStart[currentIndex] != keyword[0]) && (currentIndex > 0))
       {
         --currentIndex;
       }
       
       std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
       
-      if(maybeKeyword == keyword)
+      if (maybeKeyword == keyword)
       {
         return (isInclusive ? currentIndex : currentIndex + keyword.length());
       }
+      
+      --currentIndex;
     }
     
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_BACKWARD);
   }
   
-  size_t scanForwardTo(const std::string & keyword, FullSourceLoc sl, bool isInclusive=true)
+  size_t scanForwardTo(const std::string & keyword,
+                       FullSourceLoc sl,
+                       bool isInclusive=true,
+                       bool orComma=false)
   {
     assert(!keyword.empty());
     
@@ -111,9 +125,14 @@ namespace
     size_t currentIndex = startingIndex;
     
     // Jump to before the token
-    while(currentIndex >= 0)
+    while ((currentIndex + keyword.size()) <= SIZE_MAX)
     {
-      while(bufferStart[currentIndex] != keyword[0])
+      if (orComma && (bufferStart[currentIndex] == ','))
+      {
+        return (isInclusive ? currentIndex + 1 : currentIndex);
+      }
+      
+      while ((bufferStart[currentIndex] != keyword[0]) && ((currentIndex + keyword.size()) <= SIZE_MAX))
       {
         ++currentIndex;
       }
@@ -124,6 +143,8 @@ namespace
       {
         return (isInclusive ? currentIndex + keyword.length() : currentIndex);
       }
+      
+      ++currentIndex;
     }
     
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
@@ -228,8 +249,55 @@ namespace
       return oRanges;
     }
     
+    OffsetRanges VisitParmVarDecl(ParmVarDecl * D)
+    {
+      OffsetRanges oRanges;
+      
+      SourceRange sr = D->getSourceRange();
+      FullSourceLoc parmB(D->getLocStart(), SM);
+      FullSourceLoc parmE(D->getLocEnd(), SM);
+      size_t beginLoc = scanBackTo("(", parmB, false, true);
+      size_t endLoc = scanForwardTo(")", parmE, false, true);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(declToSymbolMap[D],
+                                 beginLoc,
+                                 endLoc,
+                                 parmB.getBuffer()->getBufferIdentifier(),
+                                 DECL));
+      _debug("ParmVarDecl::DECL          - ");
+      _debug(declToSymbolMap[D]);
+      _debug("\n");
+      
+      return oRanges;
+    }
+    
+    OffsetRanges VisitFunctionDecl(FunctionDecl * D)
+    {
+      OffsetRanges oRanges;
+      
+      FullSourceLoc funB(D->getLocStart(), SM);
+      FullSourceLoc funE(D->getLocEnd(), SM);
+      size_t beginLoc = funB.getCharacterData()
+                      - funB.getBuffer()->getBufferStart();
+      size_t endLoc = scanForwardTo("}", funE, true);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(declToSymbolMap[D],
+                                 beginLoc,
+                                 endLoc,
+                                 funB.getBuffer()->getBufferIdentifier(),
+                                 DECL));
+      _debug("FunctionDecl::DECL         - ");
+      _debug(declToSymbolMap[D]);
+      _debug("\n");
+      
+      return oRanges;
+    }
+    
     OffsetRanges VisitDecl(Decl * D)
     {
+    	llvm::raw_os_ostream fos(std::cerr);
+    	D->print(fos);
+    	fos.flush();
       throw DeclRangeCalculatorNotImplementedException(D);
     }
     
