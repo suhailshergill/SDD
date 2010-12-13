@@ -250,6 +250,17 @@ namespace
       _debug("OUT\tVisitDeclStmt\n");
     }
     
+    void VisitMemberExpr(MemberExpr * E)
+    {
+      _debug("IN\tVisitMemberExpr");
+      
+      // Look up the symbol from the associated declaration
+      // and add it to the stmt-level scope
+      stmtSymbols.insert(declToSymbolMap[E->getMemberDecl()]);
+      
+      _debug("OUT\tVisitMemberExpr");
+    }
+    
     void VisitDeclRefExpr(DeclRefExpr * E)
     {
       _debug("IN\tVisitDeclRefExpr\n");
