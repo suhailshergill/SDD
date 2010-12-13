@@ -90,22 +90,39 @@ namespace
       if ((orParen && (bufferStart[currentIndex] == '(')) ||
           (orBrace && (bufferStart[currentIndex] == '{')))
       {
-        return (isInclusive ? currentIndex + 1 : currentIndex);
+        return currentIndex + 1;
       }
       
       while ((bufferStart[currentIndex] != keyword[0]) && (currentIndex > 0))
       {
         --currentIndex;
+        
+        if ((orParen && (bufferStart[currentIndex] == '(')) ||
+            (orBrace && (bufferStart[currentIndex] == '{')))
+        {
+          return currentIndex + 1;
+        }
       }
       
-      std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
-      
-      if (maybeKeyword == keyword)
+      if (currentIndex >= 0)
       {
-        return (isInclusive ? currentIndex : currentIndex + keyword.length());
+        std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
+        
+        if (maybeKeyword == keyword)
+        {
+          return (isInclusive ? currentIndex : currentIndex + keyword.length());
+        }
+        
+        if (currentIndex > 0)
+        {
+          --currentIndex;
+        }
       }
-      
-      --currentIndex;
+    }
+    
+    if (orParen || orBrace)
+    {
+      return currentIndex;
     }
     
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_BACKWARD);
@@ -133,22 +150,36 @@ namespace
       if ((orParen && (bufferStart[currentIndex] == ')')) ||
           (orBrace && (bufferStart[currentIndex] == '}')))
       {
-        return (isInclusive ? currentIndex + 1 : currentIndex);
+        return currentIndex - 1;
       }
       
       while ((bufferStart[currentIndex] != keyword[0]) && ((currentIndex + keyword.size()) <= SIZE_MAX))
       {
         ++currentIndex;
+        
+        if ((orParen && (bufferStart[currentIndex] == ')')) ||
+            (orBrace && (bufferStart[currentIndex] == '}')))
+        {
+          return currentIndex - 1;
+        }
       }
       
-      std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
-      
-      if(maybeKeyword == keyword)
+      if ((currentIndex + keyword.size()) <= SIZE_MAX)
       {
-        return (isInclusive ? currentIndex + keyword.length() : currentIndex);
+        std::string maybeKeyword(bufferStart + currentIndex, keyword.size());
+        
+        if(maybeKeyword == keyword)
+        {
+          return (isInclusive ? currentIndex + keyword.length() : currentIndex);
+        }
+        
+        ++currentIndex;
       }
-      
-      ++currentIndex;
+    }
+    
+    if (orParen || orBrace)
+    {
+      return currentIndex;
     }
     
     throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
@@ -288,7 +319,7 @@ namespace
                                  endLoc,
                                  fieldB.getBuffer()->getBufferIdentifier(),
                                  DECL));
-      _debug("ParmVarDecl::DECL          - ");
+      _debug("FieldDecl::DECL            - ");
       _debug(declToSymbolMap[D]);
       _debug("\n");
       
