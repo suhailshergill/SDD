@@ -72,7 +72,8 @@ namespace
   size_t scanBackTo(const std::string & keyword,
                     FullSourceLoc sl,
                     bool isInclusive=true,
-                    bool orComma=false)
+                    bool orParen=false,
+                    bool orBrace=false)
   {
     assert(!keyword.empty());
     
@@ -86,7 +87,8 @@ namespace
     
     while (currentIndex > 0)
     {
-      if (orComma && (bufferStart[currentIndex] == ','))
+      if ((orParen && (bufferStart[currentIndex] == '(')) ||
+          (orBrace && (bufferStart[currentIndex] == '{')))
       {
         return (isInclusive ? currentIndex + 1 : currentIndex);
       }
@@ -112,7 +114,8 @@ namespace
   size_t scanForwardTo(const std::string & keyword,
                        FullSourceLoc sl,
                        bool isInclusive=true,
-                       bool orComma=false)
+                       bool orParen=false,
+                       bool orBrace=false)
   {
     assert(!keyword.empty());
     
@@ -127,7 +130,8 @@ namespace
     // Jump to before the token
     while ((currentIndex + keyword.size()) <= SIZE_MAX)
     {
-      if (orComma && (bufferStart[currentIndex] == ','))
+      if ((orParen && (bufferStart[currentIndex] == ')')) ||
+          (orBrace && (bufferStart[currentIndex] == '}')))
       {
         return (isInclusive ? currentIndex + 1 : currentIndex);
       }
@@ -253,16 +257,36 @@ namespace
     {
       OffsetRanges oRanges;
       
-      SourceRange sr = D->getSourceRange();
       FullSourceLoc parmB(D->getLocStart(), SM);
       FullSourceLoc parmE(D->getLocEnd(), SM);
-      size_t beginLoc = scanBackTo("(", parmB, false, true);
-      size_t endLoc = scanForwardTo(")", parmE, false, true);
+      size_t beginLoc = scanBackTo(",", parmB, false, true);
+      size_t endLoc = scanForwardTo(",", parmE, false, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
                                  endLoc,
                                  parmB.getBuffer()->getBufferIdentifier(),
+                                 DECL));
+      _debug("ParmVarDecl::DECL          - ");
+      _debug(declToSymbolMap[D]);
+      _debug("\n");
+      
+      return oRanges;
+    }
+    
+    OffsetRanges VisitFieldDecl(FieldDecl * D)
+    {
+      OffsetRanges oRanges;
+      
+      FullSourceLoc fieldB(D->getLocStart(), SM);
+      FullSourceLoc fieldE(D->getLocEnd(), SM);
+      size_t beginLoc = scanBackTo(";", fieldB, false, false, true);
+      size_t endLoc = scanForwardTo(";", fieldE, false, false, true);
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(declToSymbolMap[D],
+                                 beginLoc,
+                                 endLoc,
+                                 fieldB.getBuffer()->getBufferIdentifier(),
                                  DECL));
       _debug("ParmVarDecl::DECL          - ");
       _debug(declToSymbolMap[D]);

@@ -423,10 +423,9 @@ namespace
       printSymbol(os, varNames);
       printSourceRanges(os, oRanges);
       
-      // No dependencies
       os << "\n";
-      
       os.flush();
+      
       _debug("OUT\tVisitEnumDecl\n");
     }
 
@@ -445,21 +444,14 @@ namespace
       printSymbol(os, varNames);
       printSourceRanges(os, oRanges);
       
-      for(RecordDecl::field_iterator field = D->field_begin();
-          field != D->field_end();
-          ++field)
+      for(RecordDecl::field_iterator F = D->field_begin();
+          F != D->field_end();
+          ++F)
       {
-        // print dependencies
-        if(field->isAnonymousStructOrUnion())
-        {
-          continue;
-        }
-        
-        String dependsOnDecl = getDeclarationForType(field->getType());
-        printDependency(os, var, dependsOnDecl);
+        os << "\n";
+        Visit(*F);
       }
       
-      os << "\n";
       os.flush();
       
       _debug("OUT\tVisitRecordDecl\n");
@@ -489,6 +481,38 @@ namespace
     // {
     //   std::cerr << "HMM\n";
     // }
+    
+    void VisitFieldDecl(FieldDecl *D)
+    {
+      _debug("IN\tVisitFieldDecl\n");
+      
+      String var = gensymDecl(D);
+      // os << "# ";
+      // D->print(os);
+      // os << "\n";
+      printDeclKindAndName(D);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
+      RangeKindToGUIDMap varNames;
+      varNames[DECL] = var;
+      
+      printSymbol(os, varNames);
+      printSourceRanges(os, oRanges);
+      
+      QualType t = D->getType();
+      String varType = getDeclarationForType(t);
+      
+      if(!varType.empty())
+      {
+        printDependency(os, var, varType);
+      }
+      
+      os << "\n";
+      os.flush();
+      
+      _debug("OUT\tVisitFieldDecl\n");
+    }
     
     void VisitVarDecl(VarDecl *D)
     {
@@ -541,8 +565,8 @@ namespace
       
       for (unsigned int i = 0; i < D->getNumParams(); i++)
       {
-      	ParmVarDecl *P = D->getParamDecl(i);
-      	Visit(P);
+        ParmVarDecl *P = D->getParamDecl(i);
+        Visit(P);
       }
       
       FT = D->getPrimaryTemplate();
@@ -570,17 +594,21 @@ namespace
       
       String var = gensymDecl(D);
       printDeclKindAndName(D);
-      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
       printSymbol(os, varNames);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
       printSourceRanges(os, oRanges);
+      
       QualType t = D->getResultType();
       String varType = getDeclarationForType(t);
       if (!varType.empty())
       {
         printDependency(os, var, varType);
       }
+      
       os << '\n';
       os.flush();
       
