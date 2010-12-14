@@ -65,6 +65,13 @@ namespace
       return T->getDecl();
     }
     
+    Decl* VisitPointerType(PointerType *T)
+    {
+    	QualType qt = T->getPointeeType();
+      Type* pt = qt.getTypePtr();
+      return Visit(pt);
+    }
+    
     Decl* VisitTagType(TagType *T)
     {
       return T->getDecl();
