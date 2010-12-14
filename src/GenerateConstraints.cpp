@@ -65,6 +65,13 @@ namespace
       return T->getDecl();
     }
     
+    Decl* VisitPointerType(PointerType *T)
+    {
+    	QualType qt = T->getPointeeType();
+      Type* pt = qt.getTypePtr();
+      return Visit(pt);
+    }
+    
     Decl* VisitTagType(TagType *T)
     {
       return T->getDecl();
@@ -250,6 +257,17 @@ namespace
       _debug("OUT\tVisitDeclStmt\n");
     }
     
+    void VisitMemberExpr(MemberExpr * E)
+    {
+      _debug("IN\tVisitMemberExpr");
+      
+      // Look up the symbol from the associated declaration
+      // and add it to the stmt-level scope
+      stmtSymbols.insert(declToSymbolMap[E->getMemberDecl()]);
+      
+      _debug("OUT\tVisitMemberExpr");
+    }
+    
     void VisitDeclRefExpr(DeclRefExpr * E)
     {
       _debug("IN\tVisitDeclRefExpr\n");
@@ -423,10 +441,9 @@ namespace
       printSymbol(os, varNames);
       printSourceRanges(os, oRanges);
       
-      // No dependencies
       os << "\n";
-      
       os.flush();
+      
       _debug("OUT\tVisitEnumDecl\n");
     }
 
@@ -445,21 +462,14 @@ namespace
       printSymbol(os, varNames);
       printSourceRanges(os, oRanges);
       
-      for(RecordDecl::field_iterator field = D->field_begin();
-          field != D->field_end();
-          ++field)
+      for(RecordDecl::field_iterator F = D->field_begin();
+          F != D->field_end();
+          ++F)
       {
-        // print dependencies
-        if(field->isAnonymousStructOrUnion())
-        {
-          continue;
-        }
-        
-        String dependsOnDecl = getDeclarationForType(field->getType());
-        printDependency(os, var, dependsOnDecl);
+        os << "\n";
+        Visit(*F);
       }
       
-      os << "\n";
       os.flush();
       
       _debug("OUT\tVisitRecordDecl\n");
@@ -489,6 +499,38 @@ namespace
     // {
     //   std::cerr << "HMM\n";
     // }
+    
+    void VisitFieldDecl(FieldDecl *D)
+    {
+      _debug("IN\tVisitFieldDecl\n");
+      
+      String var = gensymDecl(D);
+      // os << "# ";
+      // D->print(os);
+      // os << "\n";
+      printDeclKindAndName(D);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      
+      RangeKindToGUIDMap varNames;
+      varNames[DECL] = var;
+      
+      printSymbol(os, varNames);
+      printSourceRanges(os, oRanges);
+      
+      QualType t = D->getType();
+      String varType = getDeclarationForType(t);
+      
+      if(!varType.empty())
+      {
+        printDependency(os, var, varType);
+      }
+      
+      os << "\n";
+      os.flush();
+      
+      _debug("OUT\tVisitFieldDecl\n");
+    }
     
     void VisitVarDecl(VarDecl *D)
     {
@@ -539,6 +581,12 @@ namespace
         Visit(D->getDescribedFunctionTemplate());
       }
       
+      for (unsigned int i = 0; i < D->getNumParams(); i++)
+      {
+        ParmVarDecl *P = D->getParamDecl(i);
+        Visit(P);
+      }
+      
       FT = D->getPrimaryTemplate();
       if(FT) // if this is a FT instantiation or specialization
       {
@@ -554,13 +602,32 @@ namespace
       // then descend into body, creating dependencies from contained stmts to 
       // function containing them.
       
-      ConstraintVisitor c(os, declToSymbolMap, symbolToDeclMap, SM);
-      
       if (D->hasBody())
       {
+        ConstraintVisitor c(os, declToSymbolMap, symbolToDeclMap, SM);
         c.Visit(D->getBody());
       }
       
+      
+      
+      String var = gensymDecl(D);
+      printDeclKindAndName(D);
+      
+      RangeKindToGUIDMap varNames;
+      varNames[DECL] = var;
+      printSymbol(os, varNames);
+      
+      OffsetRanges oRanges = getRealSourceRange(*SM, D, declToSymbolMap);
+      printSourceRanges(os, oRanges);
+      
+      QualType t = D->getResultType();
+      String varType = getDeclarationForType(t);
+      if (!varType.empty())
+      {
+        printDependency(os, var, varType);
+      }
+      
+      os << '\n';
       os.flush();
       
       _debug("OUT\tVisitFunctionDecl\n");
