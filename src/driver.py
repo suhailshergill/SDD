@@ -85,8 +85,8 @@ def applyChanges(fileName, actionList):
 
 def recursivelyDescend(symbolRemoved, currentDeletionSet, result):
     while (result != 'FAIL'):
-        # if symbolRemoved == 'sym44':
-        # import ipdb; ipdb.set_trace()
+        # if symbolRemoved == 'sym13':
+        #     import ipdb; ipdb.set_trace()
         copy(currentMinimalFileName, tentativeMinimalFileName)
         getQueryResult("undoDelete(%s)" % symbolRemoved)
 
@@ -172,6 +172,7 @@ def invokeSDD(currentMinimalFileName):
             recursivelyDescend(symbolToRemove, currentDeletionSet, result)
         
     # FIXME:HACK
+    # import ipdb; ipdb.set_trace()
     move(currentMinimalFileName, tentativeMinimalFileName)
     with open(tentativeMinimalFileName) as ifile:
         with open(currentMinimalFileName, 'w') as ofile:
@@ -179,7 +180,7 @@ def invokeSDD(currentMinimalFileName):
                 lineStrip = line.strip()
                 if lineStrip == '' or lineStrip == ';':
                     continue
-                ofile.write('%s\n' % lineStrip)
+                ofile.write(line)
 
 
 def main(argv=None):
