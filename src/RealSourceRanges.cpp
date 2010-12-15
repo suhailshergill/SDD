@@ -329,11 +329,20 @@ namespace
     OffsetRanges VisitFunctionDecl(FunctionDecl * D)
     {
       OffsetRanges oRanges;
+
+      std::string typeName = D->getType().getAsString();
+      size_t firstParen = typeName.find("(");
+      /* 
+	 NOTE: the '-1' below is to remove the whitespace. This is *extremely*
+	 brittle and should be replaced with a proper 'trim' function later
+      */
+      std::string returnTypeName = typeName.substr(0, firstParen -1);
       
       FullSourceLoc funB(D->getLocStart(), SM);
       FullSourceLoc funE(D->getLocEnd(), SM);
-      size_t beginLoc = funB.getCharacterData()
-                      - funB.getBuffer()->getBufferStart();
+      // size_t beginLoc = funB.getCharacterData()
+      //                 - funB.getBuffer()->getBufferStart();
+      size_t beginLoc = scanBackTo(returnTypeName, funB, true);
       size_t endLoc = scanForwardTo("}", funE, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
