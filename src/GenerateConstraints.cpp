@@ -610,7 +610,7 @@ namespace
 
       if(D->isMain())
       {
-        os << "\nisMain(" << var << ")\n";
+        os << "\nisMain(" << var << ").\n";
       }      
 
       
