@@ -311,6 +311,12 @@ namespace
       
       FullSourceLoc fieldB(D->getLocStart(), SM);
       FullSourceLoc fieldE(D->getLocEnd(), SM);
+      /*
+	NOTE: computing sourcerange this way is WRONG unless the file is
+	preprocessed (SSS)
+	FIXME: the scanBackTo (perhaps even the scanForwardTo) function seems to
+	be buggy. (SSS)
+      */
       size_t beginLoc = scanBackTo(";", fieldB, false, false, true);
       size_t endLoc = scanForwardTo(";", fieldE, false, false, true);
       oRanges.insert(oRanges.begin(),
