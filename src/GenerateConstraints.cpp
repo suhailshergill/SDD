@@ -593,11 +593,6 @@ namespace
         std::cerr << "create dependency to orig template\n";
       }
       
-      if(D->isMain())
-      {
-        std::cerr << "Visiting MAIN\n";
-      }
-      
       // else create symbol/SR for function
       // then descend into body, creating dependencies from contained stmts to 
       // function containing them.
@@ -612,6 +607,12 @@ namespace
       
       String var = gensymDecl(D);
       printDeclKindAndName(D);
+
+      if(D->isMain())
+      {
+        os << "\nisMain(" << var << ")\n";
+      }      
+
       
       RangeKindToGUIDMap varNames;
       varNames[DECL] = var;
