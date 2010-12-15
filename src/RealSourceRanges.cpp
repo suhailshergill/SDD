@@ -274,7 +274,7 @@ namespace
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  SM.getFileOffset(qBegin),
-                                 SM.getFileOffset(sEnd),
+                                 SM.getFileOffset(sEnd) + 1, // TODO: check (SSS)
                                  SM.getBufferName(sBegin),
                                  DECL));
       _debug("VarDecl::DECL              - ");
@@ -295,7 +295,7 @@ namespace
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
-                                 endLoc,
+                                 endLoc + 1, // TODO: check (SSS)
                                  parmB.getBuffer()->getBufferIdentifier(),
                                  DECL));
       _debug("ParmVarDecl::DECL          - ");
@@ -316,7 +316,7 @@ namespace
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
-                                 endLoc,
+                                 endLoc +1, // TODO: check (SSS)
                                  fieldB.getBuffer()->getBufferIdentifier(),
                                  DECL));
       _debug("FieldDecl::DECL            - ");
@@ -583,7 +583,7 @@ namespace
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[E],
                                  posBegin,
-                                 posEnd,
+                                 posEnd + 1, // TODO: check (SSS)
                                  exprBegin.getBuffer()->getBufferIdentifier(),
                                  EXPR));
       _debug("Expr::EXPR                 - ");
