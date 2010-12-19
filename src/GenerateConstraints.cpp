@@ -43,6 +43,15 @@ namespace
   void printDependencies(RawOS &os, String logVar, SymbolSet dependantSymbols);
   void printDependency(RawOS &os, String logVar, String dependency);
   
+  void VisitInceptionPoint(RawOS &os, ASTContext &Context, Decl * D);
+  
+  // Yay global vars
+  DeclToSymMap declToSymbolMap;
+  SymToDeclMap symbolToDeclMap;
+  StmtToSymMap stmtToSymbolMap;
+  SymToStmtMap symbolToStmtMap;
+
+  
   inline void _debug(String s)
   {
     //std::cerr << s;
@@ -87,13 +96,11 @@ namespace
   {
   public:
     ConstraintVisitor(RawOS & stream,
-                      DeclToSymMap globalMap,
-                      SymToDeclMap invGlobalMap,
-                      SourceManager * mgr)
-      :declToSymbolMap(globalMap),
-       symbolToDeclMap(invGlobalMap),
-       os(stream),
-       SM(mgr)
+                      SourceManager * mgr,
+                      ASTContext * Context)
+      :os(stream),
+       SM(mgr),
+       astContext(Context)
     {
     }
     
@@ -227,6 +234,10 @@ namespace
            DeclS != S->decl_end();
            ++DeclS)
       {
+      	VisitInceptionPoint(os, *astContext, *DeclS);
+        stmtSymbols.insert(AddDecl(*DeclS));
+        
+        /*
         String var = AddDecl(*DeclS);
         
         if (ValueDecl::classof(*DeclS))
@@ -252,6 +263,7 @@ namespace
         }
         
         stmtSymbols.insert(var);
+        */
       }
       
       _debug("OUT\tVisitDeclStmt\n");
@@ -329,13 +341,10 @@ namespace
     }
     
   private:
-    DeclToSymMap declToSymbolMap;
-    SymToDeclMap symbolToDeclMap;
-    StmtToSymMap stmtToSymbolMap;
-    SymToStmtMap symbolToStmtMap;
     RawOS & os;
     SourceManager * SM;
     SymbolSet stmtSymbols;
+    ASTContext * astContext;
   };
   
   class ConstraintGenerator : public ASTConsumer,
@@ -346,6 +355,14 @@ namespace
       :os(stream),
        astContext(NULL)
     {
+    }
+    
+    ConstraintGenerator(RawOS & stream, ASTContext & Context)
+      :os(stream),
+       astContext(NULL)
+    {
+      astContext = &Context;
+      SM = &astContext->getSourceManager();
     }
     
     virtual ~ConstraintGenerator() { }
@@ -599,7 +616,7 @@ namespace
       
       if (D->hasBody())
       {
-        ConstraintVisitor c(os, declToSymbolMap, symbolToDeclMap, SM);
+        ConstraintVisitor c(os, SM, astContext);
         c.Visit(D->getBody());
       }
       
@@ -632,6 +649,12 @@ namespace
       os.flush();
       
       _debug("OUT\tVisitFunctionDecl\n");
+    }
+    
+    void VisitDecl(Decl * D)
+    {
+      D->print(os);
+      assert(0 && "Attempting to visit an unknown Decl type");
     }
     
   private:
@@ -672,8 +695,6 @@ namespace
     }
     
   private:
-    DeclToSymMap declToSymbolMap;
-    SymToDeclMap symbolToDeclMap;
     RawOS & os;
     ASTContext * astContext;
     SourceManager * SM;
@@ -809,6 +830,12 @@ namespace
         os.flush();
       }
     }
+  }
+  
+  void VisitInceptionPoint(RawOS &os, ASTContext &Context, Decl * D)
+  {
+    ConstraintGenerator g(os, Context);
+    g.Visit(D);
   }
 }
 
