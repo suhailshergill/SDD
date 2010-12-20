@@ -23,15 +23,18 @@ namespace
   DeclToSymMap declToSymbolMap;
   StmtToSymMap stmtToSymbolMap;
   
+  enum ScanDirection
+  {
+    SCAN_FORWARD,
+    SCAN_BACKWARD
+  };
+  
   struct TokenScanException : public BaseException
   {
-    enum ScanDirection
-    {
-      SCAN_FORWARD,
-      SCAN_BACKWARD
-    };
     
-    TokenScanException(const std::string & keyword, size_t startingIndex, ScanDirection sd)
+    TokenScanException(const std::string & keyword,
+                       size_t startingIndex,
+                       ScanDirection sd)
     {
       std::string msg;
       llvm::raw_string_ostream os(msg);
@@ -69,6 +72,65 @@ namespace
     }
   };
   
+  size_t scan(ScanDirection direction,
+              const std::string &keyword,
+              FullSourceLoc location,
+              bool isInclusive = true,
+              bool orParen = false,
+              bool orBrace = false)
+  {
+    const llvm::MemoryBuffer *memBuffer = location.getBuffer();
+    
+    const char * buffer = memBuffer->getBufferStart();
+    const char * token  = location.getCharacterData();
+    
+    size_t current = token - buffer;
+    
+    const char * beginning = memBuffer->getBufferStart();
+    const char * end = memBuffer->getBufferEnd();
+    
+    do {
+      if (orParen) {
+        if ((direction == SCAN_FORWARD) && (buffer[current] == ')'))
+          return current - 1;
+        
+        if ((direction == SCAN_BACKWARD) && (buffer[current] == '('))
+          return current + 1;
+      }
+      
+      if (orBrace) {
+        if ((direction == SCAN_FORWARD) && (buffer[current] == '}'))
+          return current - 1;
+        
+        if ((direction == SCAN_BACKWARD) && (buffer[current] == '{'))
+          return current + 1;
+      }
+      
+      if (buffer[current] == keyword[0]) {
+        if ((buffer + current + keyword.size()) <= end) {
+          std::string word(buffer + current, keyword.size());
+        
+          if (word == keyword) {
+            if (direction == SCAN_FORWARD)
+              return (isInclusive ? current + keyword.length() : current);
+            
+            if (direction == SCAN_BACKWARD)
+              return (isInclusive ? current : current + keyword.length());
+          }
+        }
+      }
+      
+      if (direction == SCAN_FORWARD)
+        current++;
+      
+      if (direction == SCAN_BACKWARD)
+        current --;
+    } while ((buffer + current >= beginning) && (buffer + current <= end));
+    
+    throw TokenScanException(keyword, token - buffer, direction);
+  }
+  
+  /*
   size_t scanBackTo(const std::string & keyword,
                     FullSourceLoc sl,
                     bool isInclusive=true,
@@ -125,7 +187,7 @@ namespace
       return currentIndex;
     }
     
-    throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_BACKWARD);
+    throw TokenScanException(keyword, startingIndex, SCAN_BACKWARD);
   }
   
   size_t scanForwardTo(const std::string & keyword,
@@ -182,8 +244,9 @@ namespace
       return currentIndex;
     }
     
-    throw TokenScanException(keyword, startingIndex, TokenScanException::SCAN_FORWARD);
+    throw TokenScanException(keyword, startingIndex, SCAN_FORWARD);
   }
+  */
   
   class DeclSourceRangeVisitor : public DeclVisitor<DeclSourceRangeVisitor, OffsetRanges>
   {
@@ -198,8 +261,8 @@ namespace
       OffsetRanges oRanges;
       
       FullSourceLoc definedTypeBegin(D->getLocation(), SM);
-      size_t typedefBegin = scanBackTo("typedef", definedTypeBegin);
-      size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
+      size_t typedefBegin = scan(SCAN_BACKWARD, "typedef", definedTypeBegin);
+      size_t typedefEnd = scan(SCAN_FORWARD, ";", definedTypeBegin);
       
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
@@ -219,8 +282,8 @@ namespace
       OffsetRanges oRanges;
       
       FullSourceLoc definedTypeBegin(D->getLocation(), SM);
-      size_t typedefBegin = scanBackTo("enum", definedTypeBegin);
-      size_t typedefEnd = scanForwardTo(";", definedTypeBegin);
+      size_t typedefBegin = scan(SCAN_BACKWARD, "enum", definedTypeBegin);
+      size_t typedefEnd = scan(SCAN_FORWARD, ";", definedTypeBegin);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  typedefBegin,
@@ -247,8 +310,8 @@ namespace
         kindName = "union";
       if (D->isClass())
         kindName = "class";
-      size_t typedefBegin = scanBackTo(kindName, definedTypeBegin);
-      size_t typedefEnd = scanForwardTo(";", definedTypeEnd);
+      size_t typedefBegin = scan(SCAN_BACKWARD, kindName, definedTypeBegin);
+      size_t typedefEnd = scan(SCAN_FORWARD, ";", definedTypeEnd);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  typedefBegin,
@@ -290,12 +353,12 @@ namespace
       
       FullSourceLoc parmB(D->getLocStart(), SM);
       FullSourceLoc parmE(D->getLocEnd(), SM);
-      size_t beginLoc = scanBackTo(",", parmB, false, true);
-      size_t endLoc = scanForwardTo(",", parmE, false, true);
+      size_t beginLoc = scan(SCAN_BACKWARD, ",", parmB, false, true);
+      size_t endLoc = scan(SCAN_FORWARD, ",", parmE, false, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
-                                 endLoc + 1, // TODO: check (SSS)
+                                 endLoc, // TODO: check (SSS)
                                  parmB.getBuffer()->getBufferIdentifier(),
                                  DECL));
       _debug("ParmVarDecl::DECL          - ");
@@ -312,17 +375,17 @@ namespace
       FullSourceLoc fieldB(D->getLocStart(), SM);
       FullSourceLoc fieldE(D->getLocEnd(), SM);
       /*
-	NOTE: computing sourcerange this way is WRONG unless the file is
-	preprocessed (SSS)
-	FIXME: the scanBackTo (perhaps even the scanForwardTo) function seems to
-	be buggy. (SSS)
+  NOTE: computing sourcerange this way is WRONG unless the file is
+  preprocessed (SSS)
+  FIXME: the scanBackTo (perhaps even the scanForwardTo) function seems to
+  be buggy. (SSS)
       */
-      size_t beginLoc = scanBackTo(";", fieldB, false, false, true);
-      size_t endLoc = scanForwardTo(";", fieldE, false, false, true);
+      size_t beginLoc = scan(SCAN_BACKWARD, ";", fieldB, false, false, true);
+      size_t endLoc = scan(SCAN_FORWARD, ";", fieldE, false, false, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
-                                 endLoc +1, // TODO: check (SSS)
+                                 endLoc,
                                  fieldB.getBuffer()->getBufferIdentifier(),
                                  DECL));
       _debug("FieldDecl::DECL            - ");
@@ -339,8 +402,8 @@ namespace
       std::string typeName = D->getType().getAsString();
       size_t firstParen = typeName.find("(");
       /* 
-	 NOTE: the '-1' below is to remove the whitespace. This is *extremely*
-	 brittle and should be replaced with a proper 'trim' function later
+   NOTE: the '-1' below is to remove the whitespace. This is *extremely*
+   brittle and should be replaced with a proper 'trim' function later
       */
       std::string returnTypeName = typeName.substr(0, firstParen -1);
       
@@ -348,8 +411,8 @@ namespace
       FullSourceLoc funE(D->getLocEnd(), SM);
       // size_t beginLoc = funB.getCharacterData()
       //                 - funB.getBuffer()->getBufferStart();
-      size_t beginLoc = scanBackTo(returnTypeName, funB, true);
-      size_t endLoc = scanForwardTo("}", funE, true);
+      size_t beginLoc = scan(SCAN_BACKWARD, returnTypeName, funB, true);
+      size_t endLoc = scan(SCAN_FORWARD, "}", funE, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
@@ -365,9 +428,9 @@ namespace
     
     OffsetRanges VisitDecl(Decl * D)
     {
-    	llvm::raw_os_ostream fos(std::cerr);
-    	D->print(fos);
-    	fos.flush();
+      llvm::raw_os_ostream fos(std::cerr);
+      D->print(fos);
+      fos.flush();
       throw DeclRangeCalculatorNotImplementedException(D);
     }
     
@@ -392,8 +455,8 @@ namespace
       Expr* C = S->getCond();
       FullSourceLoc condB(C->getLocStart(), SM);
       FullSourceLoc condE(C->getLocEnd(), SM);
-      size_t posCondB = scanBackTo("(", condB, false);
-      size_t posCondE = scanForwardTo(")", condE, false);
+      size_t posCondB = scan(SCAN_BACKWARD, "(", condB, false);
+      size_t posCondE = scan(SCAN_FORWARD, ")", condE, false);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[C],
                                  posCondB,
@@ -406,8 +469,8 @@ namespace
       
       Stmt* B = S->getBody();
       FullSourceLoc bodyB(B->getLocStart(), SM);
-      size_t posBodyB = scanBackTo("do", bodyB, true);
-      size_t posBodyE = scanForwardTo(";", condE, true);
+      size_t posBodyB = scan(SCAN_BACKWARD, "do", bodyB, true);
+      size_t posBodyE = scan(SCAN_FORWARD, ";", condE, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
@@ -428,8 +491,8 @@ namespace
       Expr* C = S->getCond();
       FullSourceLoc condB(C->getLocStart(), SM);
       FullSourceLoc condE(C->getLocEnd(), SM);
-      size_t posCondB = scanBackTo("(", condB, false);
-      size_t posCondE = scanForwardTo(")", condE, false);
+      size_t posCondB = scan(SCAN_BACKWARD, "(", condB, false);
+      size_t posCondE = scan(SCAN_FORWARD, ")", condE, false);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[C],
                                  posCondB,
@@ -443,8 +506,8 @@ namespace
       Stmt* B = S->getBody();
       FullSourceLoc bodyB(B->getLocStart(), SM);
       FullSourceLoc bodyE(B->getLocEnd(), SM);
-      size_t posBodyB = scanBackTo("while", bodyB, true);
-      size_t posBodyE = scanForwardTo("}", bodyE, true);
+      size_t posBodyB = scan(SCAN_BACKWARD, "while", bodyB, true);
+      size_t posBodyE = scan(SCAN_FORWARD, "}", bodyE, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
@@ -465,8 +528,8 @@ namespace
       Stmt* init = S->getInit();
       FullSourceLoc initB(init->getLocStart(), SM);
       FullSourceLoc initE(init->getLocEnd(), SM);
-      size_t posInitB = scanBackTo("(", initB, false);
-      size_t posInitE = scanForwardTo(";", initE, false);
+      size_t posInitB = scan(SCAN_BACKWARD, "(", initB, false);
+      size_t posInitE = scan(SCAN_FORWARD, ";", initE, false);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[init],
                                  posInitB,
@@ -480,8 +543,8 @@ namespace
       Expr* C = S->getCond();
       FullSourceLoc ifConditionB(C->getLocStart(), SM);
       FullSourceLoc ifConditionE(C->getLocEnd(), SM);
-      size_t conditionBegin = scanBackTo(";", ifConditionB, false);
-      size_t conditionEnd = scanForwardTo(";", ifConditionE, false);
+      size_t conditionBegin = scan(SCAN_BACKWARD, ";", ifConditionB, false);
+      size_t conditionEnd = scan(SCAN_FORWARD, ";", ifConditionE, false);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[C],
                                  conditionBegin,
@@ -495,8 +558,8 @@ namespace
       Expr* inc = S->getInc();
       FullSourceLoc incB(inc->getLocStart(), SM);
       FullSourceLoc incE(inc->getLocEnd(), SM);
-      size_t posIncB = scanBackTo(";", incB, false);
-      size_t posIncE = scanForwardTo(")", incE, false);
+      size_t posIncB = scan(SCAN_BACKWARD, ";", incB, false);
+      size_t posIncE = scan(SCAN_FORWARD, ")", incE, false);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[inc],
                                  posIncB,
@@ -510,8 +573,8 @@ namespace
       Stmt* B = S->getBody();
       FullSourceLoc bodyB(B->getLocStart(), SM);
       FullSourceLoc bodyE(B->getLocEnd(), SM);
-      size_t posBodyB = scanBackTo("for", bodyB, true);
-      size_t posBodyE = scanForwardTo("}", bodyE, true);
+      size_t posBodyB = scan(SCAN_BACKWARD, "for", bodyB, true);
+      size_t posBodyE = scan(SCAN_FORWARD, "}", bodyE, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
@@ -532,8 +595,8 @@ namespace
       Expr* C = S->getCond();
       FullSourceLoc ifConditionB(C->getLocStart(), SM);
       FullSourceLoc ifConditionE(C->getLocEnd(), SM);
-      size_t conditionBegin = scanBackTo("(", ifConditionB, false);
-      size_t conditionEnd = scanForwardTo(")", ifConditionE, false);
+      size_t conditionBegin = scan(SCAN_BACKWARD, "(", ifConditionB, false);
+      size_t conditionEnd = scan(SCAN_FORWARD, ")", ifConditionE, false);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[C],
                                  conditionBegin,
@@ -548,8 +611,8 @@ namespace
       Stmt* E = (S->getElse() != NULL) ? S->getElse() : S->getThen();
       FullSourceLoc ifBlockB(T->getLocStart(), SM);
       FullSourceLoc ifBlockE(E->getLocEnd(), SM);
-      size_t ifBegin = scanBackTo("if", ifBlockB, true);
-      size_t ifEnd = scanForwardTo("}", ifBlockE, true);
+      size_t ifBegin = scan(SCAN_BACKWARD, "if", ifBlockB, true);
+      size_t ifEnd = scan(SCAN_FORWARD, "}", ifBlockE, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  ifBegin,
@@ -569,8 +632,8 @@ namespace
       
       FullSourceLoc stmtBegin(S->getLocStart(), SM);
       FullSourceLoc stmtEnd(S->getLocEnd(), SM);
-      size_t posBegin = scanBackTo("{", stmtBegin, true);
-      size_t posEnd = scanForwardTo("}", stmtEnd, true);
+      size_t posBegin = scan(SCAN_BACKWARD, "{", stmtBegin, true);
+      size_t posEnd = scan(SCAN_FORWARD, "}", stmtEnd, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBegin,
@@ -611,12 +674,12 @@ namespace
     OffsetRanges VisitStmt(Stmt * S)
     {
       OffsetRanges oRanges;
-    	
+      
       FullSourceLoc stmtBegin(S->getLocStart(), SM);
       FullSourceLoc stmtEnd(S->getLocEnd(), SM);
       size_t posBegin = stmtBegin.getCharacterData()
                       - stmtBegin.getBuffer()->getBufferStart();
-      size_t posEnd = scanForwardTo(";", stmtEnd, true);
+      size_t posEnd = scan(SCAN_FORWARD, ";", stmtEnd, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBegin,
