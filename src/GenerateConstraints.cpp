@@ -54,8 +54,8 @@ namespace
   
   inline void _debug(String s)
   {
-    //std::cerr << s;
-    //std::cerr.flush();
+    // std::cerr << s;
+    // std::cerr.flush();
   }
   
   unsigned int GUID_COUNT = 0;
@@ -150,13 +150,20 @@ namespace
     void VisitExpr(Expr * E)
     {
       _debug("IN\tVisitExpr\n");
-      
+      if (ImplicitValueInitExpr::classof(E) || ImplicitCastExpr::classof(E))
+	{
+	  return;
+	}
+
       for (Stmt::child_iterator ChildE = E->child_begin();
            ChildE != E->child_end();
            ++ChildE)
       {
         if (*ChildE)
         {
+	  if (ImplicitValueInitExpr::classof(*ChildE) || ImplicitCastExpr::classof(*ChildE))
+	    continue;
+
           Visit(*ChildE);
           stmtSymbols.insert(AddStmt(*ChildE));
         }
@@ -229,7 +236,7 @@ namespace
     void VisitDeclStmt(DeclStmt * S)
     {
       _debug("IN\tVisitDeclStmt\n");
-      
+
       for (DeclStmt::decl_iterator DeclS = S->decl_begin();
            DeclS != S->decl_end();
            ++DeclS)
