@@ -1,0 +1,6 @@
+import os
+env = Environment(ENV=os.environ)
+
+output = SConscript('finalReport/SConscript', variant_dir='.build')
+install = Install('#', output)
+Default(install)

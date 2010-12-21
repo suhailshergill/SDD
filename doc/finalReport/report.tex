@@ -1,0 +1,259 @@
+
+\documentclass[preprint]{acm_proc_article-sp}
+
+\usepackage{url}
+\usepackage{natbib}
+\usepackage{hyperref}
+
+\setcitestyle{comma,numbers,sort&compress,square}
+
+\begin{document}
+\title{Semantic Delta-Debugging}
+
+\numberofauthors{2}
+
+\author{
+\alignauthor
+Suhail Shergill\\
+\email{shergill@cs.wisc.edu}
+\alignauthor
+Andrew Coonce\\
+\email{coonce@cs.wisc.edu}
+}
+
+\date{}
+
+\maketitle
+\begin{abstract}
+Delta Debugging is a general debugging technique which is both simple to
+understand and can be used to quickly find minimal versions of failure-inducing
+input. Since the algorithm is generic it is intentionally uninformed about the
+underlying structure of its input and is decoupled from the semantics of any
+particular programming language. Unfortunately, this decoupling means that a
+standard Delta Debugging implementation struggles on input files with rich
+internal dependency structures.
+
+In this project, we extend Delta Debugging by introducing dependency awareness
+as a method of constraining the search space. We have modified the algorithm to
+take into account dependencies between various source ranges within the input
+file and prune impossible inputs that contain broken dependencies from the
+search space. As a proof-of-concept, we provide a front-end dependency generator
+for a subset of C and demonstrate the improvements of the now dependency-aware
+Semantic Delta Debugging as compared to naive Delta Debugging.
+\end{abstract}
+
+%% % A category with the (minimum) three required fields
+%% \category{H.4}{Information Systems Applications}{Miscellaneous}
+%% %A category including the fourth, optional field follows...
+%% \category{D.2.8}{Software Engineering}{Metrics}[complexity measures, performance measures]
+
+%% \terms{Theory}
+
+\keywords{Debugging, Delta-debugging} % NOT required for Proceedings
+
+\section{Introduction}
+\label{sec:intro}
+FIXME:coonce
+
+The Delta Debugging algorithm introduced by \citet{dd} works well
+for many kinds of inputs. The algorithm is, additionally, simple to understand
+and implement. It performs an efficient search over the exponential state space
+of input programs to find minimal failing inputs. The algorithm is intentionally
+uninformed about the underlying structure of inputs to keep it decoupled from
+the semantics of any particular programming language.
+
+Unfortunately, this decoupling can be self-defeating for input files with rich
+internal dependencies. As an example, consider the case where the Delta
+Debugging algorithm removes a base class from which several others derive in a
+C++ source file. Removing, or just breaking, any class in a long inheritance
+chain will produce a program that does not compile at all. The Delta Debugging
+algorithm is actually designed to tolerate many failures of this form. On the
+other hand, there must be at least some successes in order to reduce the input
+size by any appreciable factor. In the presence of numerous internal
+dependencies, it is likely that no viable reductions will ever emerge. Cases
+have been observed \citep{trex} where the Delta Debugging algorithm ran for more
+than three days and was unable to reduce 700kb input files by more than $20
+\%$. In these situations, the Delta Debugging algorithm only managed to remove
+whitespace.  Manual reduction, respecting class hierarchies, was able to reduce
+these test cases to 40kb.  The standard ddmin algorithm was able to further
+reduce these simplified cases.
+
+This project aims to introduce the simple concept of \emph{dependency} to the
+Delta Debugging algorithm to prune impossible inputs from the search space.
+This will both reduce the search time and make possible some reductions that
+would never emerge under traditional Delta Debugging. The algorithm will only be
+altered to take into account the notion of dependency constraints between
+character ranges of the input. A different front-end will be required for each
+structurally complex input format (C++, Python, Java), but the algorithm itself
+will remain ignorant of the semantics any particular input language.
+
+An advantage of basing this work on the Delta Debugging algorithm is that it
+does not have to be precise or $100 \%$ accurate. Some amount of robustness
+against inaccuracy in the front-end is inherent to the algorithm and the search
+will continue around improperly captured dependencies.  The resulting algorithm
+will not be in a worse position than the original Delta Debugging algorithm with
+regard to spurious syntax errors.  Our goal is only to reduce the number of
+\emph{inconsistent configurations} \citep{zeller99} arising due to semantic
+errors over the baseline of Delta Debugging. This structured approach will allow
+us to effectively explore the space of mostly well-formed input programs and
+introduce reductions unavailable to traditional Delta Debugging.
+
+\section{Background}
+FIXME: coonce
+
+This section provides ideas and terminology needed to present our stuff. Is
+optional, can alternatively dive right in. Up to you coonce.
+
+
+\section{Implementation Details}
+FIXME: coonce
+
+We will decouple the actual algorithm, which deals with tracking dependencies
+and choosing sections of code to eliminate, from the process of generating said
+dependencies.
+
+\begin{itemize}
+\item The \emph{front-end} will be responsible for parsing source files and
+  generating semantic dependencies between source ranges. We will be working
+  with Clang \citep{clang} (which is a C/C++ front-end) and would use Clang libraries to
+  output structural constraints over C/C++ code.  This approach would generate
+  syntactic and semantic dependency constraints over \emph{source ranges}.  After
+  some minor processing, Clang provides precise character-level source ranges for
+  all constructs in which we are interested.
+
+\item The constraint in which we have a primary interest is \emph{dependsOn(X,
+  Y)} (i.e., construct X depends on construct Y).  We have identified various
+  dependencies:
+
+\begin{itemize}
+\item{Variable and function \emph{references} depend on their declarations.}
+\item{Variable and function \emph{declarations} depend on the declaration of the
+  type of the variable.}
+\item{\emph{Typedef} aliases depend on the declaration of the aliased type.}
+\item{Dependencies introduced by the \emph{transitive} closure of the dependency
+  relation.
+}
+\end{itemize}
+
+\item To take advantage of the dependencies, we will investigate new search
+  strategies beyond that employed by traditional Delta Debugging.  The goal of
+  these strategies is to remove constructs (and their dependencies) in the order
+  which most quickly isolates the failure-inducing code until a minimally
+  failing input has been found.  Every time a construct is removed, anything
+  which depends on it is also (transitively) removed.
+
+  We will use a Datalog or Prolog implementation to compute the transitive
+  closure of removed constructs based on our generated dependency constraints.
+  With some postprocessing, we can reconstruct the remaining program source
+  ranges and follow the standard Delta Debugging algorithm by running the
+  checker on the newly constructed program and observing the results.
+
+\end{itemize}
+
+\subsection{Search Strategy}
+TODO: will fix this (SSS)
+
+The search strategy can be approached using either common approach:
+\begin{itemize}
+\item \emph{Top-down}: Start by removing top-level declarations (and things that
+  require them). Continue by removing smaller entities (statements) only once no
+  more progress can be made at the top level, iterating as necessary.
+\item \emph{Bottom-up}: Start by aggresively removing non-declaration statements
+  as in the search strategy from Zeller \citet{dd}. Once no further progress can
+  be made, begin removing larger constructs by working at the next higher
+  stratum.
+\end{itemize}
+It is not yet clear which method is superior, but the proposed dependency
+modifications should make the bottom-up search strategy a more attractive option
+than it is in a more traditional, dependency-unaware Delta Debugging.
+
+Delta Debugging typically starts off with a standard binary search. As this is
+possible under a structured framework as well, we may consider introducing
+heuristics and approximation techniques from graph cutting and image
+segmentation literature \citep{nc} in order to reduce the occurence of
+drastic changes (eg., removing a base class on which all classes may depend).
+
+
+\section{Evaluation}
+TODO: will fix this (SSS)
+
+Our evaluation will proceed in two stages.  First, we will compare the number of
+iterations required to find a minimal input by our algorithm and the ddmin
+algorithm of \citeauthor{dd}.  The final output of our algorithm may be slightly
+larger as we will not be shortening variable names or explicitly discarding
+whitespace.  In order to ensure that the results we get are comparable we will
+consider running ddmin at the level of individual lines (as opposed to
+characters). We will perform these tests on C-based test cases where ddmin is
+known to reduce the input size appreciably.
+
+Next, we will examine larger test cases with complex internal dependencies for
+which ddmin is unsuitable.  Ideally, we could do this using the original 700kb
+input file discussed in section \ref{sec:intro}.  We have a selection of
+preprocessed inputs of approximately this size from Mozilla, MySQL, and Apache
+which induce documented crashes in the ROSE compiler framework \citep{rose} that
+we will attempt use for this evaluation.  This may not be possible if we are not
+able to cover enough of the C++ language to generate all of the constraints for
+these rather complex files.  If this is the case, we will generate larger C
+files with complex dependencies between structures using composition instead of
+inheritance.  This will capture the spirit of the underlying problem without
+requiring the full machinery to handle all of C++.  Our goal with these inputs
+will be to show that our algorithm can reduce the input size appreciably in a
+reasonable number of iterations in cases where ddmin fails to converge after
+several days. We will also attempt to compare these results against the
+hierarchical delta-debugging algorithm of \citeauthor{hdd} (subject to being
+able to run their code).
+
+For both stages of our evaluation our test cases would consist of source code
+that we will be trying to compile.
+
+
+\section{Related Work}
+%% We can either leave this as is or move the discussion of hierarchical
+%% delta-debugging earlier. it is up to you (SSS).
+
+There has been some prior work in the area with, perhaps, the one most closely
+related to ours being the Hierarchical Delta Debugging algorithm as proposed by
+\citet{hdd} which works on tree-structured input. However, while
+the algorithm can operate on the AST of a program it is unable to account for
+dependencies arising from non-ancestral nodes due to declarations. Specifically,
+it accounts for \emph{syntactic} dependencies, but not \emph{semantic} ones.
+
+There have been other extensions to the delta debugging algorithm as well, with
+variants such as Artho's Iterative Delta Debugging \citep{idd} directing a search
+along the axis of version control commits. \citet{smt} used a
+variant of the Hierarchical Delta-Debugging algorithm, using the knowledge of
+formula structures and types to speed up the delta-debugging process on SMT
+formulas.
+
+Our constraint generation step can also be seen as a special case of program
+slicing \citep{weiser81} \citep{tip94}. These techniques ease debugging by
+removing irrelevant portions of a failing program and can be done either
+statically or dynamically (with respect to a concrete run)
+\citep{agrawal90}. There is also ongoing work in the area of \emph{executable}
+program slices where the goal is to slice a program and output source code
+that can still be compiled and run \citep{horwitz10}. One strength of our
+technique is that in combining program slicing with a technique as failure
+resistant as delta-debugging we do not need to be as precise in our
+analysis. Additionally, in cases where we are testing a compiler we can be much
+more aggressive than is possible with slicing.
+
+
+\section{Conclusions and Future Work}
+TODO: will add conclusions (SSS)
+
+Our approach can also potentially be extended to other languages eg., Python,
+OCaml etc. Python, being dynamically typed, would be challenging since we would
+have to perform an interprocedural dataflow analysis to generate the
+dependencies. It would still be feasible, however, since we do not need to be
+either sound nor complete. At the same time using Python's AST module as a
+front-end would make certain things easier too, as we could work at the AST
+level and convert it to executable code directly without having to deal with
+source ranges, or even program text.
+
+\section{Acknowledgments}
+Special thanks to Tristan who helped us navigate our way around Clang's API.
+
+\bibliographystyle{abbrvnat}
+\bibliography{refs}
+
+\end{document}
