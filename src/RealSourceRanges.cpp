@@ -381,7 +381,7 @@ namespace
   be buggy. (SSS)
       */
       size_t beginLoc = scan(SCAN_BACKWARD, ";", fieldB, false, false, true);
-      size_t endLoc = scan(SCAN_FORWARD, ";", fieldE, false, false, true);
+      size_t endLoc = scan(SCAN_FORWARD, ";", fieldE, true, false, true);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
@@ -412,7 +412,15 @@ namespace
       // size_t beginLoc = funB.getCharacterData()
       //                 - funB.getBuffer()->getBufferStart();
       size_t beginLoc = scan(SCAN_BACKWARD, returnTypeName, funB, true);
-      size_t endLoc = scan(SCAN_FORWARD, "}", funE, true);
+      size_t endLoc;
+      if (D->hasBody()) 
+	{
+	  endLoc = scan(SCAN_FORWARD, "}", funE, true);
+	}
+      else
+	{
+	  endLoc = scan(SCAN_FORWARD, ";", funE, true);
+	}
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
                                  beginLoc,
@@ -507,7 +515,15 @@ namespace
       FullSourceLoc bodyB(B->getLocStart(), SM);
       FullSourceLoc bodyE(B->getLocEnd(), SM);
       size_t posBodyB = scan(SCAN_BACKWARD, "while", bodyB, true);
-      size_t posBodyE = scan(SCAN_FORWARD, "}", bodyE, true);
+      size_t posBodyE;
+      if (CompoundStmt::classof(B))
+	{
+	  posBodyE = scan(SCAN_FORWARD, "}", bodyE, true);
+	}
+      else
+	{
+	  posBodyE = scan(SCAN_FORWARD, ";", bodyE, true);
+	}
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
@@ -574,7 +590,15 @@ namespace
       FullSourceLoc bodyB(B->getLocStart(), SM);
       FullSourceLoc bodyE(B->getLocEnd(), SM);
       size_t posBodyB = scan(SCAN_BACKWARD, "for", bodyB, true);
-      size_t posBodyE = scan(SCAN_FORWARD, "}", bodyE, true);
+      size_t posBodyE;
+      if (CompoundStmt::classof(B))
+	{
+	  posBodyE = scan(SCAN_FORWARD, "}", bodyE, true);
+	}
+      else
+	{
+	  posBodyE = scan(SCAN_FORWARD, ";", bodyE, true);
+	}
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
@@ -608,11 +632,19 @@ namespace
       _debug("\n");
       
       Stmt* T = S->getThen();
-      Stmt* E = (S->getElse() != NULL) ? S->getElse() : S->getThen();
+      Stmt* E = (S->getElse() != NULL) ? S->getElse() : S->getThen();      
       FullSourceLoc ifBlockB(T->getLocStart(), SM);
       FullSourceLoc ifBlockE(E->getLocEnd(), SM);
       size_t ifBegin = scan(SCAN_BACKWARD, "if", ifBlockB, true);
-      size_t ifEnd = scan(SCAN_FORWARD, "}", ifBlockE, true);
+      size_t ifEnd;
+      if (CompoundStmt::classof(E))
+	{
+	  ifEnd = scan(SCAN_FORWARD, "}", ifBlockE, true);
+	}
+      else
+	{
+	  ifEnd = scan(SCAN_FORWARD, ";", ifBlockE, true);
+	}
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  ifBegin,
@@ -650,7 +682,7 @@ namespace
     OffsetRanges VisitExpr(Expr * E)
     {
       OffsetRanges oRanges;
-      
+
       SourceRange sr = E->getSourceRange();
       FullSourceLoc exprBegin(sr.getBegin(), SM);
       FullSourceLoc exprEnd(sr.getEnd(), SM);
