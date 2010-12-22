@@ -55,28 +55,34 @@ Semantic Delta Debugging as compared to naive Delta Debugging.
 \label{sec:intro}
 FIXME:coonce
 
-The Delta Debugging algorithm introduced by \citet{dd} works well
-for many kinds of inputs. The algorithm is, additionally, simple to understand
-and implement. It performs an efficient search over the exponential state space
-of input programs to find minimal failing inputs. The algorithm is intentionally
-uninformed about the underlying structure of inputs to keep it decoupled from
-the semantics of any particular programming language.
+The Delta Debugging algorithm introduced by \citet{dd} works well for many kinds
+of inputs. The algorithm is, additionally, simple to understand and to
+implement. It performs an efficient search over the exponential state space of
+input programs to find minimal failing inputs. The algorithm is intentionally
+uninformed about the underlying structure of its input files in order to keep it
+decoupled from the semantics of any particular programming language. 
 
 Unfortunately, this decoupling can be self-defeating for input files with rich
 internal dependencies. As an example, consider the case where the Delta
-Debugging algorithm removes a base class from which several others derive in a
-C++ source file. Removing, or just breaking, any class in a long inheritance
-chain will produce a program that does not compile at all. The Delta Debugging
-algorithm is actually designed to tolerate many failures of this form. On the
-other hand, there must be at least some successes in order to reduce the input
-size by any appreciable factor. In the presence of numerous internal
-dependencies, it is likely that no viable reductions will ever emerge. Cases
-have been observed \citep{trex} where the Delta Debugging algorithm ran for more
-than three days and was unable to reduce 700kb input files by more than $20
-\%$. In these situations, the Delta Debugging algorithm only managed to remove
-whitespace.  Manual reduction, respecting class hierarchies, was able to reduce
-these test cases to 40kb.  The standard ddmin algorithm was able to further
-reduce these simplified cases.
+Debugging algorithm removes the declaration of a base class, upon which several
+other derivative classes rely. By removing the class which the other classes
+depend upon, the algorithm has broken the code in multiple places. Even if none
+of the affected classes are relevant to the reduction, the code does not compile
+and, as such, no inference can be made about its relevance to the test-case.
+
+Reemoving, or just breaking, any code segment upon which others depend will
+often result in a program that does not compile at all. While the Delta
+Debugging algorithm is actually designed to tolerate many failures of this form,
+there must be at least some successes in order to reduce the input size by any
+appreciable factor. In the presence of numerous internal dependencies, it is
+likely that no viable reductions will ever emerge. Cases have been observed
+\citep{trex} where the Delta Debugging algorithm ran for more than three days
+and was unable to reduce 700kb input files by more than $20 \%$ where manual
+reduction was able to reduce the size by more than $90 \%$. Frequently, in
+these situations, the Delta Debugging algorithm only manages to remove the
+comments and whitespace from the file. Reductions of this sort may actually lead
+to the reduced test-cases being more difficult to understand, the exact opposite
+of the algorithms intent.
 
 This project aims to introduce the simple concept of \emph{dependency} to the
 Delta Debugging algorithm to prune impossible inputs from the search space.
@@ -87,16 +93,17 @@ character ranges of the input. A different front-end will be required for each
 structurally complex input format (C++, Python, Java), but the algorithm itself
 will remain ignorant of the semantics any particular input language.
 
-An advantage of basing this work on the Delta Debugging algorithm is that it
-does not have to be precise or $100 \%$ accurate. Some amount of robustness
-against inaccuracy in the front-end is inherent to the algorithm and the search
-will continue around improperly captured dependencies.  The resulting algorithm
-will not be in a worse position than the original Delta Debugging algorithm with
-regard to spurious syntax errors.  Our goal is only to reduce the number of
-\emph{inconsistent configurations} \citep{zeller99} arising due to semantic
-errors over the baseline of Delta Debugging. This structured approach will allow
-us to effectively explore the space of mostly well-formed input programs and
-introduce reductions unavailable to traditional Delta Debugging.
+One compelling benefit of basing this work on the Delta Debugging algorithm is
+that it is able to take advantage of the inherent robustness of the algorithm
+in dealing with poorly managed dependencies. In the case where the solution
+misses a dependency, the worst-case behavior of the algorithm is equivalent to
+the original Delta Debugging algorithm's handling of spurious syntax errors.
+To that end, our solution's is able to reduce the number of \emph{inconsistent
+configurations} \citep{zeller99} arising due to semantic errors over the
+baseline Delta Debugging but makes no serious attempt to entirely remove them.
+The structured approach followed by our solution effectively explores the space
+of mostly well-formed input programs and allows new reductions previously
+unavailable to traditional Delta Debugging.
 
 \section{Background}
 FIXME: coonce
