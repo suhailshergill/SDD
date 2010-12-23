@@ -59,28 +59,34 @@ Semantic Delta Debugging as compared to naive Delta Debugging.
 \label{sec:intro}
 FIXME:coonce
 
-The Delta Debugging algorithm introduced by \citet{dd} works well
-for many kinds of inputs. The algorithm is, additionally, simple to understand
-and implement. It performs an efficient search over the exponential state space
-of input programs to find minimal failing inputs. The algorithm is intentionally
-uninformed about the underlying structure of inputs to keep it decoupled from
-the semantics of any particular programming language.
+The Delta Debugging algorithm introduced by \citet{dd} works well for many kinds
+of inputs. The algorithm is, additionally, simple to understand and to
+implement. It performs an efficient search over the exponential state space of
+input programs to find minimal failing inputs. The algorithm is intentionally
+uninformed about the underlying structure of its input files in order to keep it
+decoupled from the semantics of any particular programming language. 
 
 Unfortunately, this decoupling can be self-defeating for input files with rich
 internal dependencies. As an example, consider the case where the Delta
-Debugging algorithm removes a base class from which several others derive in a
-C++ source file. Removing, or just breaking, any class in a long inheritance
-chain will produce a program that does not compile at all. The Delta Debugging
-algorithm is actually designed to tolerate many failures of this form. On the
-other hand, there must be at least some successes in order to reduce the input
-size by any appreciable factor. In the presence of numerous internal
-dependencies, it is likely that no viable reductions will ever emerge. Cases
-have been observed \citep{trex} where the Delta Debugging algorithm ran for more
-than three days and was unable to reduce 700kb input files by more than $20
-\%$. In these situations, the Delta Debugging algorithm only managed to remove
-whitespace.  Manual reduction, respecting class hierarchies, was able to reduce
-these test cases to 40kb.  The standard ddmin algorithm was able to further
-reduce these simplified cases.
+Debugging algorithm removes the declaration of a base class, upon which several
+other derivative classes rely. By removing the class which the other classes
+depend upon, the algorithm has broken the code in multiple places. Even if none
+of the affected classes are relevant to the reduction, the code does not compile
+and, as such, no inference can be made about its relevance to the test-case.
+
+Reemoving, or just breaking, any code segment upon which others depend will
+often result in a program that does not compile at all. While the Delta
+Debugging algorithm is actually designed to tolerate many failures of this form,
+there must be at least some successes in order to reduce the input size by any
+appreciable factor. In the presence of numerous internal dependencies, it is
+likely that no viable reductions will ever emerge. Cases have been observed
+\citep{trex} where the Delta Debugging algorithm ran for more than three days
+and was unable to reduce 700kb input files by more than $20 \%$ where manual
+reduction was able to reduce the size by more than $90 \%$. Frequently, in
+these situations, the Delta Debugging algorithm only manages to remove the
+comments and whitespace from the file. Reductions of this sort may actually lead
+to the reduced test-cases being more difficult to understand, the exact opposite
+of the algorithms intent.
 
 This project aims to introduce the simple concept of \emph{dependency} to the
 Delta Debugging algorithm to prune impossible inputs from the search space.
@@ -91,53 +97,102 @@ character ranges of the input. A different front-end will be required for each
 structurally complex input format (C++, Python, Java), but the algorithm itself
 will remain ignorant of the semantics any particular input language.
 
-An advantage of basing this work on the Delta Debugging algorithm is that it
-does not have to be precise or $100 \%$ accurate. Some amount of robustness
-against inaccuracy in the front-end is inherent to the algorithm and the search
-will continue around improperly captured dependencies.  The resulting algorithm
-will not be in a worse position than the original Delta Debugging algorithm with
-regard to spurious syntax errors.  Our goal is only to reduce the number of
-\emph{inconsistent configurations} \citep{zeller99} arising due to semantic
-errors over the baseline of Delta Debugging. This structured approach will allow
-us to effectively explore the space of mostly well-formed input programs and
-introduce reductions unavailable to traditional Delta Debugging.
+One compelling benefit of basing this work on the Delta Debugging algorithm is
+that it is able to take advantage of the inherent robustness of the algorithm
+in dealing with poorly managed dependencies. In the case where the solution
+misses a dependency, the worst-case behavior of the algorithm is equivalent to
+the original Delta Debugging algorithm's handling of spurious syntax errors.
+To that end, our solution's is able to reduce the number of \emph{inconsistent
+configurations} \citep{zeller99} arising due to semantic errors over the
+baseline Delta Debugging but makes no serious attempt to entirely remove them.
+The structured approach followed by our solution effectively explores the space
+of mostly well-formed input programs and allows new reductions previously
+unavailable to traditional Delta Debugging.
 
-\section{Background}
-FIXME: coonce
-
-This section provides ideas and terminology needed to present our stuff. Is
-optional, can alternatively dive right in. Up to you coonce.
-
+Our preliminary results show... FIXME: SSS %what do our results show?
 
 \section{Implementation Details}
-FIXME: coonce
 
-We will decouple the actual algorithm, which deals with tracking dependencies
-and choosing sections of code to eliminate, from the process of generating said
-dependencies.
-
-\begin{itemize}
-\item The \emph{front-end} will be responsible for parsing source files and
-  generating semantic dependencies between source ranges. We will be working
-  with Clang \citep{clang} (which is a C/C++ front-end) and would use Clang libraries to
-  output structural constraints over C/C++ code.  This approach would generate
-  syntactic and semantic dependency constraints over \emph{source ranges}.  After
-  some minor processing, Clang provides precise character-level source ranges for
-  all constructs in which we are interested.
-
-\item The constraint in which we have a primary interest is \emph{dependsOn(X,
-  Y)} (i.e., construct X depends on construct Y).  We have identified various
-  dependencies:
+In order to ensure that the solution we have provided is more easily applicable
+to other languages, strong efforts were made to isolate as much of the language
+specific code as possible. In light of that goal, we have divided our
+implementation into three main components:
 
 \begin{itemize}
-\item{Variable and function \emph{references} depend on their declarations.}
-\item{Variable and function \emph{declarations} depend on the declaration of the
-  type of the variable.}
-\item{\emph{Typedef} aliases depend on the declaration of the aliased type.}
-\item{Dependencies introduced by the \emph{transitive} closure of the dependency
-  relation.
-}
+\item A \emph{Constraint Generator}, which is responsible for finding and
+      annotating constraints within the input file.
+\item An \emph{Inference System}, which is is responsible for
+      computing the transitive closure of the dependency map.
+\item The \emph{Semantic Delta-Debugger}, which constructs and evaluates the
+      test-cases.
 \end{itemize}
+
+\subsection{Constraint Generator}
+
+The \emph{Constraint Generator} is the front-end system responsible for parsing
+source files and detecting semantic dependencies between source ranges. While
+this stage uses C/C++ language-specific code to parse the input files, the
+output files it generates for later inference analysis use a language agnostic
+file format. Whereas traditional Delta Debugging frequently parses input files
+at the line- or character-level, our implementation works at the statement/sub-
+statement level as seen in Hierarchical Delta Debugging \citep{hdd} in order to
+be able to gather the language-specific dependency information.
+
+This aspect of the solution is built with the C/C++ front-end provided by
+\emph{Clang} \citep{clang} and uses the Clang libraries to output structural
+constraints over the source code file. While the implementation does not support
+reasoning about all dependency generation constraints it does fully support many
+common constructs including: variables, functions, struct members, typedefs,
+enums, and generic statement and sub-statement level expressions.
+
+Each of the aforementioned constructs is given a unique identifier and a source-
+range by the Constraint Generator, allowing it to be independently removed
+during later processing stages. For most of the tagged objects, simply deleting
+the specified source range (or, equivalently, substituting a semi-colon for the
+source range) is sufficient to emulate removing the delta during the Semantic
+Delta Debugging stage. For certain sub-statement level expressions, there is
+sometimes additional processing involved. For example, it is possible to remove
+just the conditional expression from the declaration of an 'if loop'. Our
+system flags the removed sub-statement expression as a conditional expression
+and instead replaces it arbitrarily with a value of 'true' or 'false'. Other
+statements types that receive similar treatment include: 'do' loops, 'while'
+loops, 'for' loops, 'if-then' and 'if-then-else' blocks.
+
+Beyond creating the unique identifiers and determining the appropriate source
+range and replacement information for each of the encountered objects, the
+Constraint Generator is also responsible for tracking any and all references to
+defined elements. Some common, example relationships that the system can detect
+include:
+
+\begin{itemize}
+
+\item The dependency of a variable declaration upon the prior declaration of the
+      type of the new variable.
+\item The dependency of a variable reference upon it's prior declaration.
+\item The dependency of a struct object member field reference upon both the
+      prior declaration of the struct object as well as, more specifically, the
+      declaration of the specified member field within that struct.
+
+\end{itemize}
+
+While the system is capable of recognizing a large variety of different
+situations that envoke dependent relationships between the enabling and
+dependent elements of its symbol table, it is not guaranteed to catch all
+potential dependency relationships. Though common dependency relations are
+tracked, there are certain boundary cases (such as the nested declaration of a
+function within the scope of another function) which are uncaught by the system.
+
+Again, the omission of certain dependency relationships simply impacts the total
+reduction of the solution, not whether or not the reduction occurs. General
+purpose users will likely find the provided solution sufficient, though
+extending the Constraint Generation phase to handle new AST node types is as
+simple as extending a few Visitor-pattern classes.
+
+\subsection{Inference System}
+
+\subsection{Semantic Delta-Debugger}
+
+\begin{itemize}
 
 \item To take advantage of the dependencies, we will investigate new search
   strategies beyond that employed by traditional Delta Debugging.  The goal of
