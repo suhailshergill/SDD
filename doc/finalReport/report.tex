@@ -105,42 +105,90 @@ The structured approach followed by our solution effectively explores the space
 of mostly well-formed input programs and allows new reductions previously
 unavailable to traditional Delta Debugging.
 
-\section{Background}
-FIXME: coonce
-
-This section provides ideas and terminology needed to present our stuff. Is
-optional, can alternatively dive right in. Up to you coonce.
-
+Our preliminary results show... FIXME: SSS %what do our results show?
 
 \section{Implementation Details}
-FIXME: coonce
 
-We will decouple the actual algorithm, which deals with tracking dependencies
-and choosing sections of code to eliminate, from the process of generating said
-dependencies.
-
-\begin{itemize}
-\item The \emph{front-end} will be responsible for parsing source files and
-  generating semantic dependencies between source ranges. We will be working
-  with Clang \citep{clang} (which is a C/C++ front-end) and would use Clang libraries to
-  output structural constraints over C/C++ code.  This approach would generate
-  syntactic and semantic dependency constraints over \emph{source ranges}.  After
-  some minor processing, Clang provides precise character-level source ranges for
-  all constructs in which we are interested.
-
-\item The constraint in which we have a primary interest is \emph{dependsOn(X,
-  Y)} (i.e., construct X depends on construct Y).  We have identified various
-  dependencies:
+In order to ensure that the solution we have provided is more easily applicable
+to other languages, strong efforts were made to isolate as much of the language
+specific code as possible. In light of that goal, we have divided our
+implementation into three main components:
 
 \begin{itemize}
-\item{Variable and function \emph{references} depend on their declarations.}
-\item{Variable and function \emph{declarations} depend on the declaration of the
-  type of the variable.}
-\item{\emph{Typedef} aliases depend on the declaration of the aliased type.}
-\item{Dependencies introduced by the \emph{transitive} closure of the dependency
-  relation.
-}
+\item A \emph{Constraint Generator}, which is responsible for finding and
+      annotating constraints within the input file.
+\item An \emph{Inference System}, which is is responsible for
+      computing the transitive closure of the dependency map.
+\item The \emph{Semantic Delta-Debugger}, which constructs and evaluates the
+      test-cases.
 \end{itemize}
+
+\subsection{Constraint Generator}
+
+The \emph{Constraint Generator} is the front-end system responsible for parsing
+source files and detecting semantic dependencies between source ranges. While
+this stage uses C/C++ language-specific code to parse the input files, the
+output files it generates for later inference analysis use a language agnostic
+file format. Whereas traditional Delta Debugging frequently parses input files
+at the line- or character-level, our implementation works at the statement/sub-
+statement level as seen in Hierarchical Delta Debugging \citep{hdd} in order to
+be able to gather the language-specific dependency information.
+
+This aspect of the solution is built with the C/C++ front-end provided by
+\emph{Clang} \citep{clang} and uses the Clang libraries to output structural
+constraints over the source code file. While the implementation does not support
+reasoning about all dependency generation constraints it does fully support many
+common constructs including: variables, functions, struct members, typedefs,
+enums, and generic statement and sub-statement level expressions.
+
+Each of the aforementioned constructs is given a unique identifier and a source-
+range by the Constraint Generator, allowing it to be independently removed
+during later processing stages. For most of the tagged objects, simply deleting
+the specified source range (or, equivalently, substituting a semi-colon for the
+source range) is sufficient to emulate removing the delta during the Semantic
+Delta Debugging stage. For certain sub-statement level expressions, there is
+sometimes additional processing involved. For example, it is possible to remove
+just the conditional expression from the declaration of an 'if loop'. Our
+system flags the removed sub-statement expression as a conditional expression
+and instead replaces it arbitrarily with a value of 'true' or 'false'. Other
+statements types that receive similar treatment include: 'do' loops, 'while'
+loops, 'for' loops, 'if-then' and 'if-then-else' blocks.
+
+Beyond creating the unique identifiers and determining the appropriate source
+range and replacement information for each of the encountered objects, the
+Constraint Generator is also responsible for tracking any and all references to
+defined elements. Some common, example relationships that the system can detect
+include:
+
+\begin{itemize}
+
+\item The dependency of a variable declaration upon the prior declaration of the
+      type of the new variable.
+\item The dependency of a variable reference upon it's prior declaration.
+\item The dependency of a struct object member field reference upon both the
+      prior declaration of the struct object as well as, more specifically, the
+      declaration of the specified member field within that struct.
+
+\end{itemize}
+
+While the system is capable of recognizing a large variety of different
+situations that envoke dependent relationships between the enabling and
+dependent elements of its symbol table, it is not guaranteed to catch all
+potential dependency relationships. Though common dependency relations are
+tracked, there are certain boundary cases (such as the nested declaration of a
+function within the scope of another function) which are uncaught by the system.
+
+Again, the omission of certain dependency relationships simply impacts the total
+reduction of the solution, not whether or not the reduction occurs. General
+purpose users will likely find the provided solution sufficient, though
+extending the Constraint Generation phase to handle new AST node types is as
+simple as extending a few Visitor-pattern classes.
+
+\subsection{Inference System}
+
+\subsection{Semantic Delta-Debugger}
+
+\begin{itemize}
 
 \item To take advantage of the dependencies, we will investigate new search
   strategies beyond that employed by traditional Delta Debugging.  The goal of
