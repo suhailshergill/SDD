@@ -105,6 +105,7 @@ recursivelyUndoDelete(X) :- transitiveRemovalList(X, L), maplist(assertUndoDelet
 	L).
 undoDelete(X) :- ( isRemovable(X) -> recursivelyUndoDelete(X);
 	false ).
+undoAllDelete(L) :- safeSetOf(X, hasBeenDeleted(X), L), maplist(undoDelete, L).
 recursivelyPermanentlyDelete(X) :- transitiveRemovalList(X, L),
 	maplist(assertPermanentDeletion, L).
 permanentlyDelete(X) :- ( isRemovable(X) -> recursivelyPermanentlyDelete(X);
@@ -113,6 +114,10 @@ recursivelyMarkEssential(X) :- assertIsEssentialForFailure(X), allDependsOn(X,
 	L1), exclude(isEssentialForFailure, L1, L),
 	maplist(assertIsEssentialForFailure, L).
 
+
+deleteList(L) :- maplist(assertDeletion, L).
+undoDeleteList(L) :- maplist(assertUndoDeletion, L).
+permanentlyDeleteList(L) :- maplist(assertPermanentDeletion, L).
 
 %% source range metric. is flawed, not sure if that reall matters though.
 sourceRangeSize(X, NumChar) :- sourceRange(X, B, E, _), NumChar is E - B.
@@ -154,7 +159,29 @@ sortDependsOnDescDependingOnAsc(Order, Term1, Term2) :-
 	( TL1len == TL2len -> sortDependingOnAsc(Order, Term1, Term2);
 	    compare(Order, TL2len, TL1len)).
 
+sortDependsOnDescDependingOnDesc(Order, Term1, Term2) :-
+	allTopLevelDependsOn(Term1, TL1), length(TL1, TL1len),
+	allTopLevelDependsOn(Term2, TL2), length(TL2, TL2len),
+	( TL1len == TL2len -> sortDependingOnAsc(Order, Term2, Term1);
+	    compare(Order, TL2len, TL1len)).
 
+
+sortAllDependingOnAsc(Order, Term1, Term2) :- allDependingOn(Term1,
+	BL1), length(BL1, BL1len), allDependingOn(Term2, BL2),
+	length(BL2, BL2len), 
+	( BL1len == BL2len -> compare(Order, Term1, Term2);
+	    compare(Order, BL1len, BL2len)).
+
+sortAllDependsOnDescAllDependingOnDesc(Order, Term1, Term2) :-
+	allDependsOn(Term1, TL1), length(TL1, TL1len),
+	allDependsOn(Term2, TL2), length(TL2, TL2len),
+	( TL1len == TL2len -> sortAllDependingOnAsc(Order, Term2, Term1);
+	    compare(Order, TL2len, TL1len)).
+
+sortSourceRangeSize(Order, Term1, Term2) :- sourceRangeSize(Term1, T1Size),
+	sourceRangeSize(Term2, T2Size), 
+	( T1Size == T2Size -> compare(Order, Term1, Term2);
+	    compare(Order, T2Size, T1Size)).
 
 %% containedWithinList(X, Y) :- safeSetOf(Z, containedWithin(Z, Y), X).
 %% containedWithinListSorted(X, Y) :- safeSetOf(Z, containedWithin(Z, Y), L),
@@ -163,21 +190,42 @@ sortDependsOnDescDependingOnAsc(Order, Term1, Term2) :-
 allRemovable(L) :- safeSetOf(X, isRemovable(X), L).
 allRemovableWUD(L) :- setof(X, isRemovable(X), L1),
 	exclude(hasUntrackedDependency, L1, L).
+allRemovableDeleted(L) :- safeSetOf(X, isRemovable(X), L1),
+	include(hasBeenDeleted, L1, L).
+allRemovableDeletedWUD(L) :- setof(X, isRemovable(X), L1),
+	include(hasBeenDeleted, L1, L2), exclude(hasUntrackedDependency, L2,
+	L).
 allRemovableTopLevels(L) :- allRemovable(L1), include(isTopLevel, L1, L).
 allRemovableBottomLevels(L) :- allRemovable(L1), include(isBottomLevel, L1, L).
 
-topScoringRemovable(X) :- allRemovable(L),
-	findMin(sortDependsOnDescDependingOnAsc, L, X).
-topScoringRemovableWUD(X) :- allRemovableWUD(L),
-	findMin(sortDependsOnDescDependingOnAsc, L, X).
+allUntrackedDependencies(L) :- safeSetOf(X, hasUntrackedDependency(X), S),
+	include(isRemovable, S, L1), predsort(sortSourceRangeSize, L1, L).
+allNotPermanentlyDeleted(L) :- allRemovable(L1), safeSetOf(X,
+	isEssentialForFailure(X), S), merge_set(L1, S, L2),
+	predsort(sortSourceRangeSize, L2, L).
+
+topScoringRemovable(X) :- allRemovable(L), !,
+	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
+topScoringRemovableWUD(X) :- allRemovableWUD(L), !,
+	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
+topScoringRemovableDeleted(X) :- allRemovableDeleted(L), !,
+	findMin(sortAllDependsOnDescAllDependingOnDesc, L1, X), !.
+topScoringRemovableDeletedWUD(X) :- allRemovableDeletedWUD(L), !,
+	findMin(sortAllDependsOnDescAllDependingOnDesc, L1, X), !.
+
+
+markAllUntrackedDependencies(L) :- allRemovable(L),
+	maplist(assertHasUntrackedDependency, L).
 
 %% compute stuff which prolog driver has to do. Only works for 1 file
 computeDeletionAction(X, (B, E, R)) :- sourceRange(X, B, E, _), replaceWith(X,
 	R).
+computeDeletionActionForList(L, L1) :- maplist(computeDeletionAction, L, L1), !.
 recursivelyComputeDeletionAction(X, L1, L2) :- transitiveRemovalList(X, L1),!,
 	maplist(computeDeletionAction, L1, L2), !.
 transitiveRemovalListSorted(X, L) :- transitiveRemovalList(X, L1), !,
-	predsort(sortDependsOnDescDependingOnAsc, L1, L).
-transitiveRemovalListWUDSorted(X, L) :- transitiveRemovalList(X, L1), !,
-	exclude(hasUntrackedDependency, L1, L2), !,
-	predsort(sortDependsOnDescDependingOnAsc, L2, L).
+	predsort(sortAllDependsOnDescAllDependingOnDesc, L1, L).
+transitiveRemovalListWUD(X, L) :- transitiveRemovalList(X, L1), !,
+	exclude(hasUntrackedDependency, L1, L), !.
+transitiveRemovalListWUDSorted(X, L) :- transitiveRemovalListWUD(X, L1),
+	predsort(sortAllDependsOnDescAllDependingOnDesc, L1, L).

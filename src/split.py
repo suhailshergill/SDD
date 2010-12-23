@@ -1,0 +1,1 @@
+../tests/gcc-tests/ddmin/split.py
