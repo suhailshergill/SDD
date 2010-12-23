@@ -284,7 +284,8 @@ def invokeSDD(testFile, ddmin=False):
             markNodes(result, symbolToRemove)
             copy(tentativeMinimalFileName, currentMinimalFileName)
         else:
-            recursivelyDescend2(symbolToRemove, currentDeletionSet, result)
+            markNodes(result, symbolToRemove)
+            # recursivelyDescend2(symbolToRemove, currentDeletionSet, result)
 
     # Now run ddmin on nodes with untracked dependencies
     # QR = getQueryResult("allUntrackedDependencies(L)")

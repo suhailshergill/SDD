@@ -172,11 +172,25 @@ sortAllDependingOnAsc(Order, Term1, Term2) :- allDependingOn(Term1,
 	( BL1len == BL2len -> compare(Order, Term1, Term2);
 	    compare(Order, BL1len, BL2len)).
 
+sortAllDependsOnAsc(Order, Term1, Term2) :- allDependsOn(Term1,
+	BL1), length(BL1, BL1len), allDependsOn(Term2, BL2),
+	length(BL2, BL2len), 
+	( BL1len == BL2len -> compare(Order, Term1, Term2);
+	    compare(Order, BL1len, BL2len)).
+
+
 sortAllDependsOnDescAllDependingOnDesc(Order, Term1, Term2) :-
 	allDependsOn(Term1, TL1), length(TL1, TL1len),
 	allDependsOn(Term2, TL2), length(TL2, TL2len),
 	( TL1len == TL2len -> sortAllDependingOnAsc(Order, Term2, Term1);
 	    compare(Order, TL2len, TL1len)).
+
+sortAllDependingOnDescAllDependsOnDesc(Order, Term1, Term2) :-
+	allDependingOn(Term1, TL1), length(TL1, TL1len),
+	allDependingOn(Term2, TL2), length(TL2, TL2len),
+	( TL1len == TL2len -> sortAllDependsOnAsc(Order, Term2, Term1);
+	    compare(Order, TL2len, TL1len)).
+
 
 sortSourceRangeSize(Order, Term1, Term2) :- sourceRangeSize(Term1, T1Size),
 	sourceRangeSize(Term2, T2Size), 
