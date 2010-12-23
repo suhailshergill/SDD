@@ -262,7 +262,7 @@ namespace
       OffsetRanges oRanges;
       
       FullSourceLoc definedTypeBegin(D->getLocation(), SM);
-      size_t typedefBegin = scan(SCAN_BACKWARD, "typedef", definedTypeBegin);
+      size_t typedefBegin = scan(SCAN_BACKWARD, getDeclStartToken(D), definedTypeBegin);
       size_t typedefEnd = scan(SCAN_FORWARD, ";", definedTypeBegin);
       
       oRanges.insert(oRanges.begin(),
@@ -283,7 +283,7 @@ namespace
       OffsetRanges oRanges;
       
       FullSourceLoc definedTypeBegin(D->getLocation(), SM);
-      size_t typedefBegin = scan(SCAN_BACKWARD, "enum", definedTypeBegin);
+      size_t typedefBegin = scan(SCAN_BACKWARD, getDeclStartToken(D), definedTypeBegin);
       size_t typedefEnd = scan(SCAN_FORWARD, ";", definedTypeBegin);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
@@ -311,7 +311,7 @@ namespace
         kindName = "union";
       if (D->isClass())
         kindName = "class";
-      size_t typedefBegin = scan(SCAN_BACKWARD, kindName, definedTypeBegin);
+      size_t typedefBegin = scan(SCAN_BACKWARD, getDeclStartToken(D), definedTypeBegin);
       size_t typedefEnd = scan(SCAN_FORWARD, ";", definedTypeEnd);
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
@@ -334,10 +334,13 @@ namespace
       SourceLocation sBegin = SM.getSpellingLoc(sr.getBegin());
       SourceLocation sEnd = SM.getSpellingLoc(sr.getEnd());
       // SourceRange qr = D->DeclaratorDecl::getQualifierRange();
+      FullSourceLoc varB(D->getTypeSpecStartLoc(), SM);
+      size_t beginLoc = scan(SCAN_BACKWARD, getDeclStartToken(D), varB);
+      
       SourceLocation qBegin = SM.getSpellingLoc(D->getTypeSpecStartLoc());//qr.getBegin());
       oRanges.insert(oRanges.begin(),
                      OffsetRange(declToSymbolMap[D],
-                                 SM.getFileOffset(qBegin),
+                                 beginLoc,
                                  SM.getFileOffset(sEnd) + 1, // TODO: check (SSS)
                                  SM.getBufferName(sBegin),
                                  DECL));
@@ -402,7 +405,7 @@ namespace
       std::string str1;
       llvm::raw_string_ostream llvmstr1(str1);
       D->print(llvmstr1);
-      size_t firstSpace = llvmstr1.str().find(' ');
+      size_t firstSpace = llvmstr1.str().find_first_of(" {");
       return llvmstr1.str().substr(0, firstSpace);
     }
     
