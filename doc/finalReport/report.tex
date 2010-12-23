@@ -3,7 +3,8 @@
 
 \usepackage{url}
 \usepackage{natbib}
-\usepackage{hyperref}
+\usepackage[draft]{hyperref}
+\usepackage{multirow}
 
 \usepackage{algorithmic}
 \newenvironment{definition}[1][Definition]{\begin{trivlist}
@@ -336,28 +337,32 @@ resulting configuration.
 %% 1-minimality. I am thinking about leaving this bit though for the sake of
 %% clarity, provided we get to run our test on large enough test-cases
 
- In either of these cases the way to ensure $1$-minimality of
-our final configuration is to proceed (in the second phase of the algorithm) by
-removing every node from the current configuration one at a time till we have
-guaranteed $1$-minimality.
-%% TODO: ugh all this should probably be rewritten. (SSS)
-
-Once the second phase of the algorithm terminates (and it is guaranteed to do
-so) our resulting test configuration is $1$-minimal. The details of our Semantic
-Delta-debugging algorithm are summarized in \autoref{tbl:sddmin}.
+Once the second phase of the algorithm terminates our resulting test
+configuration is $1$-minimal. The details of our Semantic Delta-debugging
+algorithm are summarized in \autoref{tbl:sddmin}.
 
 
 \begin{table*}
 \centering
 \begin{tabular}{| p{0.97\textwidth} |} \hline
-Fill in algorithm description.
-%% \begin{algorithmic}
-
-%% \end{algorithmic}
+\emph{Semantic Delta-debugging Algorithm}
+\begin{algorithmic}
+\WHILE{\emph{unmarked node left}}
+\STATE $n \gets$ maximum scoring node
+\STATE $D \gets dependents(n)$
+\STATE $\mathcal{C}^{'} \gets \mathcal{C} \setminus D$
+\STATE $t \gets test(\mathcal{C})$
+\IF{$t == $ FAIL} \STATE $\mathcal{C} \gets \mathcal{C}^{'}$
+\ELSIF{$t == $ PASS} \STATE $mark(enablers(n), \text{ESSENTIAL})$
+\ELSE \STATE $mark(n, \text{INCONSISTENT})$
+ \ENDIF
+\ENDWHILE
+\STATE $\mathcal{C} \gets ddmin(\mathcal{C})$
+\end{algorithmic}
 
 \\  \hline
 \end{tabular}
-\caption{Some Typical Commands}
+\caption{Semantic Delta Debugging (sddmin)}
 \label{tbl:sddmin}
 \end{table*}
 
@@ -387,32 +392,66 @@ employed. The search strategy can be approached using either common approach:
 
 
 \section{Evaluation}
-TODO: will fix this (SSS)
+To compute the transitive closure of the dependencies as outputted by our
+constraint generator and to order the various syntactic constructs as per the
+search heuristics we used SWI-Prolog \citep{swipl}. The driver which implemented
+the actual \emph{sddmin} algorithm was written in Python and we used PySWIP
+\citep{pyswip} as our Python--Prolog interface.
 
 Our evaluation will proceed in two stages.  First, we will compare the number of
 iterations required to find a minimal input by our algorithm and the ddmin
-algorithm of \citeauthor{dd}.  The final output of our algorithm may be slightly
-larger as we will not be shortening variable names or explicitly discarding
-whitespace.  In order to ensure that the results we get are comparable we will
-run ddmin at the same syntactic granularity as our algorithm. We will perform
-these tests on C-based test cases where ddmin is known to reduce the input size
-appreciably.
+algorithm of \citeauthor{dd}.  In order to ensure that the results we get are
+comparable we will run ddmin at the same syntactic granularity as our
+algorithm. We will perform these tests on C-based test cases where ddmin is
+known to reduce the input size appreciably. The files taken for this stage of
+the evaluation are taken from GCC's \citep{gcc} test-suite and are known to
+cause internal compiler errors in version 3.4 of GCC.
 
 Next, we will examine larger test cases with complex internal dependencies for
-which ddmin is unsuitable.  We have generated larger C files with complex
-dependencies between structures using composition instead of inheritance.  This
-will capture the spirit of the underlying problem without requiring the full
-machinery to handle all of C++.  Our goal with these inputs will be to show that
-our algorithm can reduce the input size appreciably in a reasonable number of
-iterations in cases where ddmin fails to converge after several days. 
+which ddmin is unsuitable.  We modified one of the files (known as
+pr22061-large.c in \autoref{tbl:eval}) used in the first set of experiments and
+generated a larger C file with complex dependencies between structures using
+composition instead of inheritance.  This captures the spirit of the underlying
+problem without requiring the full machinery to handle all of C++.  Our goal
+with this inputs will be to show that our algorithm can reduce the input size
+appreciably in a reasonable number of iterations in cases where \emph{ddmin}
+takes too long to converge.
+
+\begin{table*}
+\centering
+\begin{tabular}{|l|c|c| c| c| c| c|} \hline
+\multirow{2}{*}{Program} & \multicolumn{3}{| c |}{ddmin} & \multicolumn{3}{| c |}{sddmin}\\ 
+& Inconsistent tests & Total tests & Time taken (sec) & Inconsistent tests & Total tests & Time taken (sec) \\ \hline
+\cline{2-3} \cline{3-4}
+\hline
+deprecated-2.c & 1 & 4& 0.26 & 2 & 6 & 0.35\\\hline
+20050607-1.c & 72 & 49 & 4.4 & 31 & 46 & 2.1\\\hline
+pr22061-1.c & 101 & 182 & 10.5 & 20 & 33 & 1.8\\\hline
+pr22061-large.c & 744 & 826 & 50.5 & 51 & 72 & 15.8\\\hline
+\end{tabular}
+\caption{Performance Numbers}
+\label{tbl:eval}
+\end{table*}
+
 
 %% We will also attempt to compare these results against the hierarchical
 %% delta-debugging algorithm of \citeauthor{hdd} (subject to being able to run
 %% their code).
 
-For both stages of our evaluation our test cases would consist of source code
-that we will be trying to compile.
-
+For the test cases that we ran our comparison on both \emph{ddmin} and
+\emph{sddmin} produced the same minimal test-case, but as can be seen in
+\autoref{tbl:eval} our algorithm reached that in much fewer iterations and less
+time. This difference is especially noticeable when we increased the size of the
+file (as can be seen in the case of pr22061-large.c). What is not included here
+is the time it took to generate the constraints, but in our experience that
+stage only took a fraction of a second. Perhaps on larger test cases still the
+difference would be noticeable, but we do not expect it to be a major
+bottleneck. Another thing to note is that the numbers reported in
+\autoref{tbl:eval} we used the mixed search heuristic using the top-down search
+heuristic as the primary. We ran the same tests using the other heuristics as
+well, but there was not a noticeable difference in performance. We leave it to
+future work to do a more thorough evaluation of the different search
+strategies.
 
 \section{Related Work}
 
