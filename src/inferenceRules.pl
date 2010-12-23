@@ -20,6 +20,13 @@ replaceWith(X, '0') :- isCondition(X).
 replaceWith(X, '') :- isExpr(X).
 
 
+isElement(X) :- sourceRange(X, _, _, _), not(isInvalid(X)).
+allElements(L) :- safeSetOf(X, isElement(X), L).
+clearLabel(X) :- retractall(hasBeenDeleted(X)),
+	retractall(hasBeenPermanentlyDeleted(X)),
+	retractall(hasUntrackedDependency(X)),
+	retractall(isEssentialForFailure(X)).
+clearAllLabels(L) :- allElements(L), maplist(clearLabel, L).
 %% valid to remove
 isRemovable(X) :- replaceWith(X, _), sourceRange(X, _, _, _),
 	not(hasBeenPermanentlyDeleted(X)), not(isEssentialForFailure(X)),
@@ -221,11 +228,15 @@ allNotPermanentlyDeleted(L) :- allRemovable(L1), safeSetOf(X,
 topScoringRemovable(X) :- allRemovable(L), !,
 	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
 topScoringRemovableWUD(X) :- allRemovableWUD(L), !,
+	findMin(sortAllDependingOnDescAllDependsOnDesc, L, X), !.
+topScoringRemovableWUD2(X) :- allRemovableWUD(L), !,
 	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
 topScoringRemovableDeleted(X) :- allRemovableDeleted(L), !,
-	findMin(sortAllDependsOnDescAllDependingOnDesc, L1, X), !.
+	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
 topScoringRemovableDeletedWUD(X) :- allRemovableDeletedWUD(L), !,
-	findMin(sortAllDependsOnDescAllDependingOnDesc, L1, X), !.
+	findMin(sortAllDependingOnDescAllDependsOnDesc, L, X), !.
+topScoringRemovableDeletedWUD2(X) :- allRemovableDeletedWUD(L), !,
+	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
 
 
 markAllUntrackedDependencies(L) :- allRemovable(L),

@@ -3,7 +3,7 @@
 
 :- multifile isInitializer/1, isFunction/1, isCompoundStatement/1,
 	isDeclaration/1, isStatement/1, isCondition/1, isExpr/1, isMain/1,
-	isInvalid/1.
+	isInvalid/1, sourceRange/4, dependsOn/2.
 
 %% swipl complains if it runs into inference rules for which it has no examples
 %% so going to give it some fake examples. Hmm it stopped complaining
