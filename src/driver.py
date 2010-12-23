@@ -31,6 +31,7 @@ constraintGenerator = "../bin/GenerateConstraints"
 commandName = "/s/gcc-3.4.4/bin/gcc -c -O3"
 
 numberOfUnresolvedTests = 0
+numberOfTotalTests = 0
 ################################################################################
 def getValueFromAtom(a):
     if isinstance(a, str):
@@ -75,6 +76,8 @@ def runTest(commandName, fileName, logTest=True):
 
     # Determine outcome
     global numberOfUnresolvedTests
+    global numberOfTotalTests
+    numberOfTotalTests += 1
     if status == 0 and output.find("warning") <0:
         return 'PASS'
     elif output.find("warning") >=0:
@@ -99,13 +102,13 @@ def applyChanges(fileName, actionList):
 def markNodes(result, node):
     command = None
     if result == 'FAIL':
-        print "NONESSENTIAL:", node
+        # print "NONESSENTIAL:", node
         command = "permanentlyDelete(%s)" % node
     elif result == 'PASS':
-        print "ESSENTIAL:", node
+        # print "ESSENTIAL:", node
         command = "recursivelyMarkEssential(%s)" % node
     else:
-        print "UNRESOLVED:", node
+        # print "UNRESOLVED:", node
         # import ipdb; ipdb.set_trace()
         command = "assertHasUntrackedDependency(%s)" % node
     return getQueryResult(command)
@@ -129,7 +132,7 @@ def markNodes(result, node):
 
 
 def removeNodeTransitively(fileName, symbolToRemove):
-    print "TRYING:", symbolToRemove
+    # print "TRYING:", symbolToRemove
     QR = getQueryResult("recursivelyComputeDeletionAction(%s, L1, L2)" %
                         symbolToRemove)
     currentDeletionSet = None
@@ -146,56 +149,56 @@ def removeNodeList(fileName, symbols):
                         symbolsStr)
     applyChanges(fileName, QR['L'])
 
-def recursivelyDescend2(symbolRemoved, currentDeletionSet, result):
-    testActuallyRun = True
-    deletionSet = None
-    symbolToRemove = None
+# def recursivelyDescend2(symbolRemoved, currentDeletionSet, result):
+#     testActuallyRun = True
+#     deletionSet = None
+#     symbolToRemove = None
 
-    while (result != 'FAIL'):
-        if testActuallyRun:
-            copy(currentMinimalFileName, tentativeMinimalFileName)
+#     while (result != 'FAIL'):
+#         if testActuallyRun:
+#             copy(currentMinimalFileName, tentativeMinimalFileName)
 
-        markNodes(result, symbolRemoved)
-        # if symbolRemoved == 'sym2':
-        #     import ipdb; ipdb.set_trace()
+#         markNodes(result, symbolRemoved)
+#         # if symbolRemoved == 'sym2':
+#         #     import ipdb; ipdb.set_trace()
         
-        QR = getQueryResult("topScoringRemovableDeletedWUD(X)")
-        if QR is None or isVariableNone(QR['X']):
-            getQueryResult("undoAllDelete(L)")
-            break
-        symbolToRemove = getValueFromAtom(QR['X'])
-        # FIXME: for certain cases pyswip returns this, not really sure why. i
-        # *think* it is for unbound results, but not sure
-        if not isinstance(symbolToRemove, str):
-            testActuallyRun = False
-            break
+#         QR = getQueryResult("topScoringRemovableDeletedWUD(X)")
+#         if QR is None or isVariableNone(QR['X']):
+#             getQueryResult("undoAllDelete(L)")
+#             break
+#         symbolToRemove = getValueFromAtom(QR['X'])
+#         # FIXME: for certain cases pyswip returns this, not really sure why. i
+#         # *think* it is for unbound results, but not sure
+#         if not isinstance(symbolToRemove, str):
+#             testActuallyRun = False
+#             break
 
-        QR = getQueryResult("transitiveRemovalList(%s, L)" %
-                            symbolToRemove)
+#         QR = getQueryResult("transitiveRemovalList(%s, L)" %
+#                             symbolToRemove)
 
-        if QR is None or isVariableNone(QR['L']):            
-            testActuallyRun = False
-            break
-            # print "ERROR!!!"
-            # import ipdb; ipdb.set_trace()
-        else:
-            deletionSet = map(getValueFromAtom, QR['L'])
+#         if QR is None or isVariableNone(QR['L']):            
+#             testActuallyRun = False
+#             break
+#             # print "ERROR!!!"
+#             # import ipdb; ipdb.set_trace()
+#         else:
+#             deletionSet = map(getValueFromAtom, QR['L'])
             
-        if set(deletionSet) == set(currentDeletionSet):
-            testActuallyRun = False
-            continue
-        else:
-            getQueryResult("undoDelete(%s)" % symbolRemoved)
-            symbolRemoved = symbolToRemove
-            currentDeletionSet = removeNodeTransitively(tentativeMinimalFileName, symbolToRemove)
+#         if set(deletionSet) == set(currentDeletionSet):
+#             testActuallyRun = False
+#             continue
+#         else:
+#             getQueryResult("undoDelete(%s)" % symbolRemoved)
+#             symbolRemoved = symbolToRemove
+#             currentDeletionSet = removeNodeTransitively(tentativeMinimalFileName, symbolToRemove)
 
-            result = runTest(commandName, tentativeMinimalFileName)
-            testActuallyRun = True
-            continue
+#             result = runTest(commandName, tentativeMinimalFileName)
+#             testActuallyRun = True
+#             continue
             
-    if result == 'FAIL':
-        markNodes(result, symbolRemoved)
-        copy(tentativeMinimalFileName, currentMinimalFileName)
+#     if result == 'FAIL':
+#         markNodes(result, symbolRemoved)
+#         copy(tentativeMinimalFileName, currentMinimalFileName)
     
         
 ## first ad-hoc version
@@ -255,13 +258,22 @@ def recursivelyDescend2(symbolRemoved, currentDeletionSet, result):
 
 
 
-def invokeSDD(testFile, ddmin=False):
-    copy(testFile, currentMinimalFileName)
-    result = runTest(commandName, currentMinimalFileName, False)
-    if result != 'FAIL':
-        return
+def invokeSDD(testFile, topPreferred= False, ddmin=False):
+    # import ipdb; ipdb.set_trace()
+
     global numberOfUnresolvedTests
+    global numberOfTotalTests
     numberOfUnresolvedTests = 0
+    numberOfTotalTests = 0
+
+    getQueryResult("clearAllLabels(L)")
+    copy(testFile, currentMinimalFileName)
+
+    searchHeuristic = None
+    if topPreferred:
+        searchHeuristic = "topScoringRemovableWUD(X)"
+    else:
+        searchHeuristic = "topScoringRemovableWUD2(X)"
 
     if ddmin:
         getQueryResult("markAllUntrackedDependencies(L)")
@@ -269,7 +281,7 @@ def invokeSDD(testFile, ddmin=False):
     while (getQueryResult("allRemovableWUD(L)")):
         copy(currentMinimalFileName, tentativeMinimalFileName)
 
-        QR = getQueryResult("topScoringRemovableWUD(X)")
+        QR = getQueryResult(searchHeuristic)
         if QR is None or isVariableNone(QR['X']):
             break
         symbolToRemove = getValueFromAtom(QR['X'])
@@ -279,12 +291,12 @@ def invokeSDD(testFile, ddmin=False):
         currentDeletionSet = removeNodeTransitively(tentativeMinimalFileName,
                                                     symbolToRemove)
         result = runTest(commandName, tentativeMinimalFileName)
+        markNodes(result, symbolToRemove)
 
+        # import ipdb; ipdb.set_trace()
         if result == 'FAIL':
-            markNodes(result, symbolToRemove)
             copy(tentativeMinimalFileName, currentMinimalFileName)
-        else:
-            markNodes(result, symbolToRemove)
+        # else:
             # recursivelyDescend2(symbolToRemove, currentDeletionSet, result)
 
     # Now run ddmin on nodes with untracked dependencies
@@ -326,6 +338,7 @@ def invokeSDD(testFile, ddmin=False):
     # FIXME:HACK
     # import ipdb; ipdb.set_trace()
     print "NUMBEROFUNRESOLVEDTESTS", numberOfUnresolvedTests
+    print "TOTALTESTS", numberOfTotalTests
     print L
     move(currentMinimalFileName, tentativeMinimalFileName)
     with open(tentativeMinimalFileName) as ifile:
@@ -349,6 +362,8 @@ def main(argv=None):
                       help = 'turn on debugging messages')
     parser.add_option('-d', '--ddmin', action='store_true', default=False,
                       help = 'run vanilla ddmin')
+    parser.add_option('-t', '--topPreferred', action='store_true', default=False,
+                      help = 'give higher preference to top-level constructs')
 
 
     options, args = parser.parse_args(argv[1:])
@@ -359,20 +374,27 @@ def main(argv=None):
     if not (os.path.exists(testFile) and os.path.isfile(testFile)):
         parser.error('make sure input file "%s" exists' % testFile)
 
-    stderr = None
-    if not options.verbose:
-        stderr = open('/dev/null')
-    call([constraintGenerator, "-plugin", "gen-constraints", testFile],
-         stderr=stderr)
+    result = runTest(commandName, testFile, False)
+    if result != 'FAIL':
+        return
+        
+    # stderr = None
+    # if not options.verbose:
+    #     stderr = open('/dev/null')
+
+    s = 'call(["%s", "-plugin", "gen-constraints","%s"],stderr=open("/dev/null"))' % (constraintGenerator, testFile)
+    setup = "from subprocess import call"
+    t = timeit.Timer(stmt=s, setup=setup)
+    print "CONSTRAINT GENERATION: %s" % str(t.timeit(5)/5)
 
     for item in sources:
         prolog.consult(item)
 
     # import ipdb; ipdb.set_trace()
-    s = 'invokeSDD("%s", %s)' % (testFile, str(options.ddmin))
+    s = 'invokeSDD("%s", %s, %s)' % (testFile, str(options.topPreferred), str(options.ddmin))
     setup = "from __main__ import invokeSDD"
     t = timeit.Timer(stmt=s, setup=setup)
-    # invokeSDD(currentMinimalFileName, options.ddmin)
+    # invokeSDD(testFile, options.topPreferred, options.ddmin)
     print "TIME TAKEN: %s" % str(t.timeit(5)/5)
 
 ###############################################################################
