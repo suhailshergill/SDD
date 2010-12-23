@@ -58,7 +58,6 @@ Semantic Delta Debugging as compared to naive Delta Debugging.
 
 \section{Introduction}
 \label{sec:intro}
-FIXME:coonce
 
 The Delta Debugging algorithm introduced by \citet{dd} works well for many kinds
 of inputs. The algorithm is, additionally, simple to understand and to
@@ -107,10 +106,11 @@ To that end, our solution's is able to reduce the number of \emph{inconsistent
 configurations} \citep{zeller99} arising due to semantic errors over the
 baseline Delta Debugging but makes no serious attempt to entirely remove them.
 The structured approach followed by our solution effectively explores the space
-of mostly well-formed input programs and allows new reductions previously
-unavailable to traditional Delta Debugging.
+of mostly well-formed input programs and allows us to arrive at the minimal
+solution in fewer iterations which translates to lesser time. This benefit is
+over and above that which we gain by working on the level of syntactic
+constructs (statements, expressions etc.).
 
-Our preliminary results show... FIXME: SSS
 
 %% SSS
 %%   What do our results show? Can we distill the essence down to a short
@@ -195,37 +195,57 @@ extending the Constraint Generation phase to handle new AST node types is as
 simple as extending a few Visitor-pattern classes.
 
 \subsection{Inference System}
-
-\subsection{Semantic Delta-Debugger}
-
-\begin{itemize}
-
-\item To take advantage of the dependencies, we will investigate new search
-  strategies beyond that employed by traditional Delta Debugging.  The goal of
-  these strategies is to remove constructs (and their dependencies) in the order
-  which most quickly isolates the failure-inducing code until a minimally
-  failing input has been found.  Every time a construct is removed, anything
-  which depends on it is also (transitively) removed.
-
-  We will use a Datalog or Prolog implementation to compute the transitive
-  closure of removed constructs based on our generated dependency constraints.
-  With some postprocessing, we can reconstruct the remaining program source
-  ranges and follow the standard Delta Debugging algorithm by running the
-  checker on the newly constructed program and observing the results.
-
-\end{itemize}
-
-\subsection{Search Strategy}
-TODO: will fix this (SSS)
-
-As stated before, the dependencies as outputted by the constraint generation
-framework allow us to prune impossible inputs.
-
 \begin{definition}
 Let $\mathcal{C} = \{ \Delta_1, \Delta_2, \ldots, \Delta_n \}$ be the set of all
 possible changes $\Delta_i$. A change set $c \subseteq \mathcal{C}$ is called a
 \emph{configuration}.
 \end{definition}
+
+\begin{definition}
+A \emph{dependency graph} associated with a set of syntactic constructs
+$\mathcal{C}$ is a directed graph $G$ where the vertex set is given by
+$\mathcal{C}$ and a directed edge exists between nodes $\Delta_i$ and $\Delta_j$
+iff \emph{dependsOn($\Delta_i$, $\Delta_j$)} holds.
+\end{definition}
+
+\begin{definition}
+A syntactic construct $\Delta_i$ is a \emph{dependent} of another syntactic
+construct $\Delta_j$ if there exists a directed path from $\Delta_i$ to
+$\Delta_j$ of length $0$ or greater in the dependency graph. Thus a node is
+always dependent on itself.
+\end{definition}
+
+\begin{definition}
+A syntactic construct $\Delta_i$ is an \emph{enabler} of another syntactic
+construct $\Delta_j$ iff $\Delta_j$ is a dependent of $\Delta_i$.
+\end{definition}
+
+
+The goal of the inference system is to compute the \emph{dependent} and
+\emph{enabler} sets for a given node and to keep track of the current
+configuration the dependencies present therein. The benefit of these sets will
+become clearer in \ref{sddmin}.
+
+\subsection{Semantic Delta-Debugger}
+To take advantage of the dependencies, we will investigate new search strategies
+beyond that employed by traditional Delta Debugging.  The goal of these
+strategies is to remove constructs (and their dependencies) in the order which
+most quickly isolates the failure-inducing code until a minimally failing input
+has been found.  Every time a construct is removed, anything which depends on it
+is also (transitively) removed.
+
+We will use a Datalog or Prolog implementation to compute the transitive closure
+of removed constructs based on our generated dependency constraints.  With some
+postprocessing, we can reconstruct the remaining program source ranges and
+follow the standard Delta Debugging algorithm by running the checker on the
+newly constructed program and observing the results.
+
+
+\subsection{Search Strategy}
+\label{sddmin}
+As stated before, the dependencies as outputted by the constraint generation
+framework allow us to prune impossible inputs.
+
 
 \begin{definition}
 An \emph{inconsistent configuration} is a configuration which does not result in
@@ -255,24 +275,6 @@ case. We will be explaining our algorithm and the heuristic search it carries
 out in order to find the $1$-minimal in terms of statistics associated with
 nodes in the \emph{dependency graph}.
 
-\begin{definition}
-A \emph{dependency graph} associated with a set of syntactic constructs
-$\mathcal{C}$ is a directed graph $G$ where the vertex set is given by
-$\mathcal{C}$ and a directed edge exists between nodes $\Delta_i$ and $\Delta_j$
-iff \emph{dependsOn($\Delta_i$, $\Delta_j$)} holds.
-\end{definition}
-
-\begin{definition}
-A syntactic construct $\Delta_i$ is a \emph{dependent} of another syntactic
-construct $\Delta_j$ if there exists a directed path from $\Delta_i$ to
-$\Delta_j$ of length $0$ or greater in the dependency graph. Thus a node is
-always dependent on itself.
-\end{definition}
-
-\begin{definition}
-A syntactic construct $\Delta_i$ is an \emph{enabler} of another syntactic
-construct $\Delta_j$ iff $\Delta_j$ is a dependent of $\Delta_i$.
-\end{definition}
 
 The algorithm, \emph{sddmin}, then proceeds as follows. We begin with a
 dependency graph, $G$, where none of the vertices labeled. We then pick a node,
@@ -490,7 +492,12 @@ more aggressive than is possible with slicing.
 
 
 \section{Conclusions and Future Work}
-TODO: will add conclusions (SSS)
+As our preliminary results show we can get considerable savings in the number of
+iterations and time it takes to find the $1$-minimal test case by taking into
+account the rich dependency structure inherent in a given program. Additionally,
+the benefit of our technique as shown in \autoref{tbl:eval} lies over and above
+that which is gained by running \emph{ddmin} on the level of syntactic
+constructs.
 
 The most immediately accessible extension to the project would be supplementing
 the Clang front-end with support for the remaining unsupported C constructs (or
