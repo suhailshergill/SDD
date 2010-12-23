@@ -241,12 +241,12 @@ A test case $c \subseteq \mathcal{C}$ is \emph{$1$-minimal} if $\forall \Delta_i
 \end{definition}
 
 This notion of $1$-minimality was introduced in \citep{zeller99} and this is
-what our Semantic Delta-debugging algorithm, \emph{sddmin}, will be aiming
-for. 
+what our Semantic Delta-debugging algorithm, \emph{sddmin}, will be aiming to
+satisfy. 
 
-As stated previously, the dependencies as outputted by the Dependency-generation
-framework may then be interpreted as defining constraints that you need to obey
-in order to generate valid configurations.
+As stated previously, we view the dependencies detected by the Constraint
+Generation framework as defining constraints that need be satisfied in order to
+generate valid configurations.
 
 The obvious question that we are left with is how one can use these constraints
 to effectively search through the space of configurations to find a minimal test
@@ -273,28 +273,30 @@ A syntactic construct $\Delta_i$ is an \emph{enabler} of another syntactic
 construct $\Delta_j$ iff $\Delta_j$ is a dependent of $\Delta_i$.
 \end{definition}
 
-The algorithm, \emph{sddmin} then proceeds as follows. We begin with the
-dependency graph, $G$, with none of the vertices labeled. We then pick a node,
-say $\Delta_i$, according to a search heuristic and compute its dependent set,
-\emph{Dependent($\Delta_i$)}. We remove nodes belonging to
+The algorithm, \emph{sddmin}, then proceeds as follows. We begin with a
+dependency graph, $G$, where none of the vertices labeled. We then pick a node,
+$\Delta_i$, according to some search heuristic and compute its dependent set,
+\emph{Dependent($\Delta_i$)}. We remove all of the nodes in
 \emph{Dependent($\Delta_i$)} from the current configuration, $\mathcal{C}$, and
 end up with the new configuration $\mathcal{C}^{'}$. 
 
 If $\mathcal{C}^{'}$ still fails in the same way as $\mathcal{C}$, then
 $\mathcal{C}^{'}$ is a smaller test case and we have managed to reduce the size
-of the failing test and repeat the process by picking another node this time
-from $\mathcal{C}^{'}$. 
+of the failing test. In such a case, repeatedly picking another node from the
+newly reduced test case $\mathcal{C}^{'}$ will result in progressively smaller
+test cases.
 
-Otherwise, either $\mathcal{C}^{'}$ passes the test or results in an
-inconsistent configuration. If $\mathcal{C}^{'}$ passes the test we mark
-$\Delta_i$ and all its enablers as ``ESSENTIAL''. If $\mathcal{C}^{'}$ results
-in an inconsistent configuration, we label the node $\Delta_i$ as
-``INCONSISTENT''. In both cases the next step is achieved by picking another
-node from $\mathcal{C}$ (as per the search heuristic).
+If the the test case does not fail in the same way, then we know that either
+$\mathcal{C}^{'}$ passes the test or that results in an inconsistent
+configuration. If $\mathcal{C}^{'}$ passes the test we mark $\Delta_i$ and all
+of its enablers as ``ESSENTIAL''. If $\mathcal{C}^{'}$ results in an
+inconsistent configuration, we label the node $\Delta_i$ as ``INCONSISTENT''.
+In both cases the next step is achieved by picking another node from
+$\mathcal{C}$ (as per the search heuristic).
 
 This process is repeated till we have no unmarked nodes in our current
-configuration. If our dependency generation framework resulted in perfect
-dependencies, i.e., it is both sound and complete then we can stop. The
+configuration. If our constraint generation framework resulted in perfect
+dependencies, i.e., it is both sound and complete, then we can stop. The
 completeness of the constraints would guarantee that we would never have had to
 mark a node as ``INCONSISTENT'' and the soundness guarantees that our resulting
 configuration is truly minimal.
@@ -308,6 +310,8 @@ second phase of the algorithm we proceed by removing every ``INCONSISTENT'' node
 in the current configuration one at a time till we have guaranteed
 $1$-minimality.
 %% TODO: this is probably cryptic. elaborate more (SSS)
+%% i don't know that this "guarantees" anything, what if there's somehow a
+%% recursive dependency between two source lines that are both inconsistent? (ALC)
 
 Alternatively, if we guarantee that our constraint system is complete, i.e., we
 may have spurious dependencies, but we never miss a dependency, then that means
@@ -434,7 +438,7 @@ TODO: will add conclusions (SSS)
 The most immediately accessible extension to the project would be supplementing
 the Clang front-end with support for the remaining unsupported C constructs (or
 Due to time constraints, the visitors for certain infrequently used constructs
-were not created for use during the Dependency Generation process. As the Clang
+were not created for use during the Constraint Generation process. As the Clang
 ASTVisitor class (used by this implementation) supports visiting all C and all
 C++ nodes, extending support to the full spectrum of C/C++-language constructs
 is as simple as adding the missing visitors according to the established
@@ -469,7 +473,7 @@ without the need to manipulate source ranges, or even program text.
 
 \section{Acknowledgments}
 
-Special thanks to Tristan who helped us navigate our way around Clang's API.
+Special thanks to Tristan, who helped us navigate our way around Clang's API.
 
 \bibliographystyle{abbrvnat}
 \bibliography{refs}
