@@ -436,7 +436,7 @@ pr22061-large.c & 744 & 826 & 50.5 & 51 & 72 & 15.8\\\hline
 %% delta-debugging algorithm of \citeauthor{hdd} (subject to being able to run
 %% their code).
 
-For the test cases that we ran our comparison on both \emph{ddmin} and
+For the test cases that we ran our comparison on, both \emph{ddmin} and
 \emph{sddmin} produced the same minimal test-case, but as can be seen in
 \autoref{tbl:eval} our algorithm converged in significantly fewer number of
 iterations and less time. This difference is especially noticeable when we
@@ -462,10 +462,10 @@ thorough evaluation of the different search strategies.
 
 There has been some prior work in the area with, perhaps, the one most closely
 related to ours being the Hierarchical Delta Debugging algorithm as proposed by
-\citet{hdd} which works on tree-structured input. However, while
-the algorithm can operate on the AST of a program it is unable to account for
-dependencies arising from non-ancestral nodes due to declarations. Specifically,
-it accounts for \emph{syntactic} dependencies, but not \emph{semantic} ones.
+\citet{hdd} which works on tree-structured input. However, while the algorithm
+can operate on the AST of a program it is unable to account for dependencies
+arising from non-ancestral nodes due to declarations. Specifically, it accounts
+for \emph{syntactic} dependencies, but can not account for \emph{semantic} ones.
 
 There have been other extensions to the delta debugging algorithm as well, with
 variants such as Artho's Iterative Delta Debugging \citep{idd} directing a search
