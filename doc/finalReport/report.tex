@@ -195,6 +195,8 @@ extending the Constraint Generation phase to handle new AST node types is as
 simple as extending a few Visitor-pattern classes.
 
 \subsection{Inference System}
+Let us define a few terms. We restate the definition provided for a
+\emph{configuration} in \citet{zeller99}
 \begin{definition}
 Let $\mathcal{C} = \{ \Delta_1, \Delta_2, \ldots, \Delta_n \}$ be the set of all
 possible changes $\Delta_i$. A change set $c \subseteq \mathcal{C}$ is called a
@@ -211,7 +213,7 @@ iff \emph{dependsOn($\Delta_i$, $\Delta_j$)} holds.
 \begin{definition}
 A syntactic construct $\Delta_i$ is a \emph{dependent} of another syntactic
 construct $\Delta_j$ if there exists a directed path from $\Delta_i$ to
-$\Delta_j$ of length $0$ or greater in the dependency graph. Thus a node is
+$\Delta_j$ of length $0$ or greater in the dependency graph. Thus, a node is
 always dependent on itself.
 \end{definition}
 
@@ -223,37 +225,22 @@ construct $\Delta_j$ iff $\Delta_j$ is a dependent of $\Delta_i$.
 
 The goal of the inference system is to compute the \emph{dependent} and
 \emph{enabler} sets for a given node and to keep track of the current
-configuration the dependencies present therein. The benefit of these sets will
+configuration and the dependencies present therein. The benefit of these sets will
 become clearer in \ref{sddmin}.
 
 \subsection{Semantic Delta-Debugger}
-To take advantage of the dependencies, we will investigate new search strategies
-beyond that employed by traditional Delta Debugging.  The goal of these
-strategies is to remove constructs (and their dependencies) in the order which
-most quickly isolates the failure-inducing code until a minimally failing input
-has been found.  Every time a construct is removed, anything which depends on it
-is also (transitively) removed.
-
-We will use a Datalog or Prolog implementation to compute the transitive closure
-of removed constructs based on our generated dependency constraints.  With some
-postprocessing, we can reconstruct the remaining program source ranges and
-follow the standard Delta Debugging algorithm by running the checker on the
-newly constructed program and observing the results.
-
-
-\subsection{Search Strategy}
-\label{sddmin}
-As stated before, the dependencies as outputted by the constraint generation
-framework allow us to prune impossible inputs.
-
-
+Let us restate the definition of an \emph{inconsistent configuration} as stated
+in \citet{zeller99}.
 \begin{definition}
 An \emph{inconsistent configuration} is a configuration which does not result in
 a testable program.
 \end{definition}
 
 Inconsistent configurations arise due to semantic and syntactic dependencies
-amongst the various syntactic constructs within a program.
+amongst the various syntactic constructs within a program. As stated before, the
+dependencies as outputted by the constraint generation framework allow us to
+prune impossible inputs and help avoid inconsistent configurations.
+
 %% TODOD: give an example?
 
 \begin{definition}
@@ -265,15 +252,29 @@ This notion of $1$-minimality was introduced in \citep{zeller99} and this is
 what our Semantic Delta-debugging algorithm, \emph{sddmin}, will be aiming to
 satisfy. 
 
+We use a Prolog implementation to compute the transitive closure of removed
+constructs based on our generated dependency constraints.  With some
+postprocessing, we can reconstruct the remaining program source ranges and
+follow the standard Delta Debugging algorithm by running the checker on the
+newly constructed program and observing the results.
+
+
+\subsection{Search Strategy}
+\label{sddmin}
+
 As stated previously, we view the dependencies detected by the Constraint
 Generation framework as defining constraints that need be satisfied in order to
 generate valid configurations.
+
 
 The obvious question that we are left with is how one can use these constraints
 to effectively search through the space of configurations to find a minimal test
 case. We will be explaining our algorithm and the heuristic search it carries
 out in order to find the $1$-minimal in terms of statistics associated with
-nodes in the \emph{dependency graph}.
+nodes in the \emph{dependency graph}. The goal of the heuristic search strategy
+is to remove constructs (and their dependencies) in the order which most quickly
+isolates the failure-inducing code until a minimally failing input has been
+found.
 
 
 The algorithm, \emph{sddmin}, then proceeds as follows. We begin with a
