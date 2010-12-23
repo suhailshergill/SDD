@@ -158,11 +158,11 @@ the specified source range (or, equivalently, substituting a semi-colon for the
 source range) is sufficient to emulate removing the delta during the Semantic
 Delta Debugging stage. For certain sub-statement level expressions, there is
 sometimes additional processing involved. For example, it is possible to remove
-just the conditional expression from the declaration of an 'if loop'. Our
-system flags the removed sub-statement expression as a conditional expression
-and instead replaces it arbitrarily with a value of 'true' or 'false'. Other
-statements types that receive similar treatment include: 'do' loops, 'while'
-loops, 'for' loops, 'if-then' and 'if-then-else' blocks.
+just the conditional expression from the declaration of an `if loop'. Our system
+flags the removed sub-statement expression as a conditional expression and
+instead replaces it arbitrarily with a value of `true' or `false'. Other
+statements types that receive similar treatment include: `do' loops, `while'
+loops, `for' loops, `if-then' and `if-then-else' blocks.
 
 Beyond creating the unique identifiers and determining the appropriate source
 range and replacement information for each of the encountered objects, the
