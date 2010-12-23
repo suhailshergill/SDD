@@ -217,8 +217,8 @@ simple as extending a few Visitor-pattern classes.
 \subsection{Search Strategy}
 TODO: will fix this (SSS)
 
-As stated before, the dependencies as outputted by the dependency generation
-framework allow us to prune impossible inputs. 
+As stated before, the dependencies as outputted by the constraint generation
+framework allow us to prune impossible inputs.
 
 \begin{definition}
 Let $\mathcal{C} = \{ \Delta_1, \Delta_2, \ldots, \Delta_n \}$ be the set of all
@@ -299,26 +299,44 @@ configuration. If our constraint generation framework resulted in perfect
 dependencies, i.e., it is both sound and complete, then we can stop. The
 completeness of the constraints would guarantee that we would never have had to
 mark a node as ``INCONSISTENT'' and the soundness guarantees that our resulting
-configuration is truly minimal.
-%% TODO: elaborate on true minimality (SSS)
+configuration is $1$-minimal.
 
-If, however, we guarantee only that our constraint system is sound, i.e., we
-have no spurious dependencies (though we may be missing some), then that means
-that all the nodes marked ``ESSENTIAL'' are truly essential, but the nodes
-marked ``INCONSISTENT'' may not form a minimal set. To remedy this, in the
-second phase of the algorithm we proceed by removing every ``INCONSISTENT'' node
-in the current configuration one at a time till we have guaranteed
-$1$-minimality.
-%% TODO: this is probably cryptic. elaborate more (SSS)
+If, however, that is not the case we must proceed on to the second phase of the
+algorithm. Consider what happens when we guarantee that our constraint system is
+sound, i.e., we have no spurious dependencies (though we may be missing some).
+This means that all the nodes marked ``ESSENTIAL'' are truly essential, but the
+nodes marked ``INCONSISTENT'' may not form a minimal set. Alternatively, if we
+guarantee that our constraint system is complete, i.e., we may have spurious
+dependencies, but we never miss a dependency, then that means that there won't
+be any node marked ``INCONSISTENT'' in our resulting configuration, but the
+nodes marked ``ESSENTIAL'' may not truly be essential for causing failure. It is
+also possible that we may be guaranteed neither completeness nor soundness of
+our constraint system, in which case, we may have both ``INCONSISTENT'' and
+``ESSENTIAL'' nodes in our final configuration neither of which are guaranteed
+to be $1$-minimal.
+
+In the second phase of the algorithm we enforce $1$-minimality by invoking
+\emph{ddmin} \citep{dd} on the resulting configuration (or in the case where we
+are guaranteed that the constraint generation system is sound, on the
+``INCONSISTENT'' subset of our resulting configuration). Additionally, if we
+have reason to believe that our constraint generation framework provides
+mostly-correct constraints, then we can instead proceed in the second phase by
+removing nodes one at a time (equivalent to invoking \emph{ddmin} with maximum
+granularity) since this alone is enough to guarantee $1$-minimality. Of course
+doing this may mean that we are fooled into thinking that a set of syntactic
+constructs is essential for failure even when that may not be the case. This
+will happen if complex \emph{interference} patterns \cite{zeller99} exist in the
+resulting configuration.
+
+%% TODO: this is probably cryptic. elaborate more (SSS) 
 %% i don't know that this "guarantees" anything, what if there's somehow a
-%% recursive dependency between two source lines that are both inconsistent? (ALC)
+%% recursive dependency between two source lines that are both inconsistent?
+%% (ALC)
+%% yes, this will not pick either one of those dependencies, but we still get
+%% 1-minimality. I am thinking about leaving this bit though for the sake of
+%% clarity, provided we get to run our test on large enough test-cases
 
-Alternatively, if we guarantee that our constraint system is complete, i.e., we
-may have spurious dependencies, but we never miss a dependency, then that means
-that there won't be any node marked ``INCONSISTENT'', but the nodes marked
-``ESSENTIAL'' may not truly be essential for causing failure. It is also
-possible that we may be guaranteed neither completeness nor soundness of our
-constraint system. In either of these cases the way to ensure $1$-minimality of
+ In either of these cases the way to ensure $1$-minimality of
 our final configuration is to proceed (in the second phase of the algorithm) by
 removing every node from the current configuration one at a time till we have
 guaranteed $1$-minimality.
