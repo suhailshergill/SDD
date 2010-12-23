@@ -9,6 +9,7 @@
 #include <clang/AST/AST.h>
 #include <clang/AST/DeclVisitor.h>
 #include <clang/AST/Decl.h>
+#include <clang/AST/OperationKinds.h>
 #include <clang/AST/StmtVisitor.h>
 #include <clang/AST/TypeLoc.h>
 #include <clang/AST/TypeVisitor.h>
@@ -151,9 +152,22 @@ namespace
     {
       _debug("IN\tVisitExpr\n");
       if (ImplicitValueInitExpr::classof(E) || ImplicitCastExpr::classof(E))
-	{
-	  return;
-	}
+      	{
+	  if (CastExpr::classof(E))
+	    {
+	      CastExpr* C = static_cast<CastExpr*>(E);
+	      switch (C->getCastKind())
+		{
+		case CK_FunctionToPointerDecay:
+		  std::cerr << "BEGIN\n";
+		  E->dump(*SM);
+		  std::cerr << "END\n";
+		  return;
+		default:
+		  break;
+		}
+	    }
+      	}
 
       for (Stmt::child_iterator ChildE = E->child_begin();
            ChildE != E->child_end();
@@ -161,11 +175,16 @@ namespace
       {
         if (*ChildE)
         {
-	  if (ImplicitValueInitExpr::classof(*ChildE) || ImplicitCastExpr::classof(*ChildE))
-	    continue;
-
           Visit(*ChildE);
-          stmtSymbols.insert(AddStmt(*ChildE));
+	  if (ImplicitValueInitExpr::classof(*ChildE) || ImplicitCastExpr::classof(*ChildE))
+	    {
+	      std::cerr << "BEGIN\n";
+	      (*ChildE)->dump(*SM);
+	      std::cerr << "END\n";
+	      continue;
+	    }
+	  else
+	    stmtSymbols.insert(AddStmt(*ChildE));
         }
       }
       
