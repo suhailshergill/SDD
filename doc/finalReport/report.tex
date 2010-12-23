@@ -105,7 +105,12 @@ The structured approach followed by our solution effectively explores the space
 of mostly well-formed input programs and allows new reductions previously
 unavailable to traditional Delta Debugging.
 
-Our preliminary results show... FIXME: SSS %what do our results show?
+Our preliminary results show... FIXME: SSS
+
+%% SSS
+%%   What do our results show? Can we distill the essence down to a short
+%%   paragraph and append it to the end of the introduction
+%% ALC
 
 \section{Implementation Details}
 
@@ -178,9 +183,9 @@ potential dependency relationships. Though common dependency relations are
 tracked, there are certain boundary cases (such as the nested declaration of a
 function within the scope of another function) which are uncaught by the system.
 
-Again, the omission of certain dependency relationships simply impacts the total
-reduction of the solution, not whether or not the reduction occurs. General
-purpose users will likely find the provided solution sufficient, though
+Again, the omission of certain dependency relationships only impacts the degree
+of reduction for a given test-case and not whether any reduction is possible.
+General purpose users will likely find the provided solution sufficient, though
 extending the Constraint Generation phase to handle new AST node types is as
 simple as extending a few Visitor-pattern classes.
 
@@ -263,8 +268,13 @@ that we will be trying to compile.
 
 
 \section{Related Work}
+
 %% We can either leave this as is or move the discussion of hierarchical
 %% delta-debugging earlier. it is up to you (SSS).
+
+%% SSS
+%%   I vote we leave this here and 'greatly' extend it, which i'm willing to do.
+%% ALC
 
 There has been some prior work in the area with, perhaps, the one most closely
 related to ours being the Hierarchical Delta Debugging algorithm as proposed by
@@ -296,16 +306,44 @@ more aggressive than is possible with slicing.
 \section{Conclusions and Future Work}
 TODO: will add conclusions (SSS)
 
-Our approach can also potentially be extended to other languages eg., Python,
-OCaml etc. Python, being dynamically typed, would be challenging since we would
-have to perform an interprocedural dataflow analysis to generate the
-dependencies. It would still be feasible, however, since we do not need to be
-either sound nor complete. At the same time using Python's AST module as a
-front-end would make certain things easier too, as we could work at the AST
-level and convert it to executable code directly without having to deal with
-source ranges, or even program text.
+The most immediately accessible extension to the project would be supplementing
+the Clang front-end with support for the remaining unsupported C constructs (or
+Due to time constraints, the visitors for certain infrequently used constructs
+were not created for use during the Dependency Generation process. As the Clang
+ASTVisitor class (used by this implementation) supports visiting all C and all
+C++ nodes, extending support to the full spectrum of C/C++-language constructs
+is as simple as adding the missing visitors according to the established
+patterns of similar features in this implementation. In support of our language-
+agnostic approach, we made a concerted effort to ensure that the solution would
+be readily extensible to other languages (e.g. Python, OCaml, etc.) with the
+translatable ideas and reusable components developed over the course of this
+project.
+
+While the ideas are translatable, there would be certain language-specific
+challenges to overcome depending on the language and its associated AST module.
+In this project, for example, we found that Clang's AST objects often had
+incorrect 'end-of-range' source locations associated with them, a drawback which
+goes largely unnoticed in most situations as the 'start-of-range' source
+location is
+
+%% SSS
+%%   I'm thinking we should say something about the carat under the first letter
+%%   being the only commonly used extension for the start-end source ranges.
+%%   What do you think?
+%% ALC
+
+Python, on the other hand, would present a distinct new set of challenges and
+opportunities. As a dynamically typed language, Python offers certain challenges
+with regards to the interprocedural dataflow analysis necessary to generate the
+dependencies. It would still be feasible, however, since the subsequent analysis
+requires neither sound nor complete generation of dependencies. At the same
+time, using Python's AST module as a front-end (analogous to the Clang AST
+front-end employed by our solution) would make certain aspects easier as one
+could work at the AST level and convert the results to executable code directly
+without the need to manipulate source ranges, or even program text.
 
 \section{Acknowledgments}
+
 Special thanks to Tristan who helped us navigate our way around Clang's API.
 
 \bibliographystyle{abbrvnat}
