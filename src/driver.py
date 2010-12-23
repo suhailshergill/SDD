@@ -16,6 +16,7 @@ from pyswip import Prolog
 import commands
 import math
 import timeit
+import time
 
 from split import *
 from listsets import *
@@ -266,7 +267,8 @@ def invokeSDD(testFile, topPreferred= False, ddmin=False):
     numberOfUnresolvedTests = 0
     numberOfTotalTests = 0
 
-    getQueryResult("clearAllLabels(L)")
+    QR = getQueryResult("clearAllLabels(L)")
+    print "TOTAL NODES: %s" % str(len(QR['L']))
     copy(testFile, currentMinimalFileName)
 
     searchHeuristic = None
@@ -278,6 +280,7 @@ def invokeSDD(testFile, topPreferred= False, ddmin=False):
     if ddmin:
         getQueryResult("markAllUntrackedDependencies(L)")
 
+    t0 = time.time()
     while (getQueryResult("allRemovableWUD(L)")):
         copy(currentMinimalFileName, tentativeMinimalFileName)
 
@@ -299,6 +302,7 @@ def invokeSDD(testFile, topPreferred= False, ddmin=False):
         # else:
             # recursivelyDescend2(symbolToRemove, currentDeletionSet, result)
 
+    t1 = time.time() - t0
     # Now run ddmin on nodes with untracked dependencies
     # QR = getQueryResult("allUntrackedDependencies(L)")
     QR = getQueryResult("allNotPermanentlyDeleted(L)")
@@ -308,7 +312,13 @@ def invokeSDD(testFile, topPreferred= False, ddmin=False):
     if not(QR is None or isVariableNone(QR['L'])):
         L = map(getValueFromAtom, QR['L'])
 
-    print L
+    # print L
+    if not ddmin:
+        print "PHASE 1: %s" % str(len(L))
+        print "PHASE 1 TIME: %s" % str(t1)
+        print "PHASE 1 UNRESOLVED: %d" % numberOfUnresolvedTests
+        print "PHASE 1 TOTAL: %d\n" % numberOfTotalTests
+
     # if not ddmin:
     #     n = len(L)
     copy(currentMinimalFileName, tentativeMinimalFileName)
@@ -337,9 +347,10 @@ def invokeSDD(testFile, topPreferred= False, ddmin=False):
         
     # FIXME:HACK
     # import ipdb; ipdb.set_trace()
-    print "NUMBEROFUNRESOLVEDTESTS", numberOfUnresolvedTests
-    print "TOTALTESTS", numberOfTotalTests
-    print L
+    print "MINIMAL CASE: %s" % str(len(L))
+    print "NUMBEROFUNRESOLVEDTESTS: %d" % numberOfUnresolvedTests
+    print "TOTALTESTS: %d\n===============================\n" % numberOfTotalTests
+    # print L
     move(currentMinimalFileName, tentativeMinimalFileName)
     with open(tentativeMinimalFileName) as ifile:
         with open(currentMinimalFileName, 'w') as ofile:
@@ -385,7 +396,7 @@ def main(argv=None):
     s = 'call(["%s", "-plugin", "gen-constraints","%s"],stderr=open("/dev/null"))' % (constraintGenerator, testFile)
     setup = "from subprocess import call"
     t = timeit.Timer(stmt=s, setup=setup)
-    print "CONSTRAINT GENERATION: %s" % str(t.timeit(5)/5)
+    print "CONSTRAINT GENERATION: %s\n" % str(t.timeit(5)/5)
 
     for item in sources:
         prolog.consult(item)
