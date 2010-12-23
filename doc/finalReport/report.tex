@@ -253,28 +253,9 @@ what our Semantic Delta-debugging algorithm, \emph{sddmin}, aims for.
 
 We use a Prolog implementation to compute the transitive closure of removed
 constructs based on our generated dependency constraints.  With some
-postprocessing, we can reconstruct the remaining program source ranges and
-follow the standard Delta Debugging algorithm by running the checker on the
-newly constructed program and observing the results.
-
-
-\subsection{Search Strategy}
-\label{sddmin}
-
-As stated previously, we view the dependencies detected by the Constraint
-Generation framework as defining constraints that need be satisfied in order to
-generate valid configurations.
-
-
-The obvious question that we are left with is how one can use these constraints
-to effectively search through the space of configurations to find a minimal test
-case. We will be explaining our algorithm and the heuristic search it carries
-out in order to find the $1$-minimal in terms of statistics associated with
-nodes in the \emph{dependency graph}. The goal of the heuristic search strategy
-is to remove constructs (and their dependencies) in the order which most quickly
-isolates the failure-inducing code until a minimally failing input has been
-found.
-
+postprocessing, we reconstruct the remaining program source ranges and follow
+the standard Delta Debugging algorithm by running the checker on the newly
+constructed program and observing the results.
 
 The algorithm, \emph{sddmin}, then proceeds as follows. We begin with a
 dependency graph, $G$, where none of the vertices labeled. We then pick a node,
@@ -369,8 +350,23 @@ algorithm are summarized in \autoref{tbl:sddmin}.
 \end{table*}
 
 
-The only thing that is left for us to define is the search heuristic
-employed. The search strategy can be approached using either common approach:
+\subsection{Search Strategy}
+\label{sddmin}
+
+As stated previously, we view the dependencies detected by the Constraint
+Generation framework as defining constraints that need be satisfied in order to
+generate valid configurations.
+
+
+The obvious question that we are left with is how one can use these constraints
+to effectively search through the space of configurations to find a minimal test
+case. We have explained our algorithm and that it carries out a heuristic search
+it carries out in order to find the $1$-minimal in terms of statistics
+associated with nodes in the \emph{dependency graph}. The goal of the heuristic
+search strategy is to remove constructs (and their dependencies) in the order
+which most quickly isolates the failure-inducing code until a minimally failing
+input has been found. This search strategy can be approached using either of the
+following techniques:
 \begin{itemize}
 \item \emph{Top-down}: Give more preference to nodes with larger dependent
   sets, i.e., start by removing top-level declarations (and things that
@@ -442,18 +438,18 @@ pr22061-large.c & 744 & 826 & 50.5 & 51 & 72 & 15.8\\\hline
 
 For the test cases that we ran our comparison on both \emph{ddmin} and
 \emph{sddmin} produced the same minimal test-case, but as can be seen in
-\autoref{tbl:eval} our algorithm reached that in much fewer iterations and less
-time. This difference is especially noticeable when we increased the size of the
-file (as can be seen in the case of pr22061-large.c). What is not included here
-is the time it took to generate the constraints, but in our experience that
-stage only took a fraction of a second. Perhaps on larger test cases still the
-difference would be noticeable, but we do not expect it to be a major
-bottleneck. Another thing to note is that the numbers reported in
-\autoref{tbl:eval} we used the mixed search heuristic using the top-down search
-heuristic as the primary. We ran the same tests using the other heuristics as
-well, but there was not a noticeable difference in performance. We leave it to
-future work to do a more thorough evaluation of the different search
-strategies.
+\autoref{tbl:eval} our algorithm converged in significantly fewer number of
+iterations and less time. This difference is especially noticeable when we
+increased the size of the file (as can be seen in the case of
+pr22061-large.c). What is not included here is the time it took to generate the
+constraints, but in our experience that stage only took a fraction of a
+second. Perhaps on larger test cases still the difference would be noticeable,
+but we do not expect it to be a major bottleneck. Another thing to note is that
+for the numbers reported in \autoref{tbl:eval} we used the mixed search
+heuristic using the top-down search heuristic as the primary heuristic. We ran
+the same tests using the other heuristics as well, but there was not a
+noticeable difference in performance. We leave it to future work to do a more
+thorough evaluation of the different search strategies.
 
 \section{Related Work}
 
