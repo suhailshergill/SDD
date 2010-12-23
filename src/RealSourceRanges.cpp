@@ -4,6 +4,7 @@
 #include <iostream>
 #include <map>
 #include <assert.h>
+#include <string>
 
 #include <clang/AST/AST.h>
 #include <clang/AST/DeclVisitor.h>
@@ -395,23 +396,34 @@ namespace
       return oRanges;
     }
     
+    // TODO: use this to get beginning token for all declarations
+    std::string getDeclStartToken(Decl* D)
+    {
+      std::string str1;
+      llvm::raw_string_ostream llvmstr1(str1);
+      D->print(llvmstr1);
+      size_t firstSpace = llvmstr1.str().find(' ');
+      return llvmstr1.str().substr(0, firstSpace);
+    }
+    
+
     OffsetRanges VisitFunctionDecl(FunctionDecl * D)
     {
-      OffsetRanges oRanges;
+      OffsetRanges oRanges;      
 
-      std::string typeName = D->getType().getAsString();
-      size_t firstParen = typeName.find("(");
-      /* 
-   NOTE: the '-1' below is to remove the whitespace. This is *extremely*
-   brittle and should be replaced with a proper 'trim' function later
-      */
-      std::string returnTypeName = typeName.substr(0, firstParen -1);
+   //    std::string typeName = D->getType().getAsString();
+   //    size_t firstParen = typeName.find("(");
+   //    /* 
+   // NOTE: the '-1' below is to remove the whitespace. This is *extremely*
+   // brittle and should be replaced with a proper 'trim' function later
+   //    */
+   //    std::string returnTypeName = typeName.substr(0, firstParen -1);
       
       FullSourceLoc funB(D->getLocStart(), SM);
       FullSourceLoc funE(D->getLocEnd(), SM);
       // size_t beginLoc = funB.getCharacterData()
       //                 - funB.getBuffer()->getBufferStart();
-      size_t beginLoc = scan(SCAN_BACKWARD, returnTypeName, funB, true);
+      size_t beginLoc = scan(SCAN_BACKWARD, getDeclStartToken(D), funB, true);
       size_t endLoc;
       if (D->hasBody()) 
 	{
