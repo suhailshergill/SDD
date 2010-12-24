@@ -773,6 +773,11 @@ namespace
   };
   
   // Utility functions
+  bool isInvalidSymbol(std::string symbol)
+  {
+    return (symbol.find("sym") == std::string::npos);
+  }
+
   void printSymbol(RawOS &os, RangeKindToGUIDMap varNames)
   {
     for(RangeKindToGUIDMap::iterator it = varNames.begin();
@@ -810,12 +815,14 @@ namespace
         default:
           assert(0 && "No symbol found for RangeQualifier");
       }
+      if (isInvalidSymbol((*it).second))
+	return;
       
       os << predName << "(" << (*it).second << ").\n";
     }
     
     os.flush();
-  }
+  }  
   
   void printSourceRanges(RawOS & os, OffsetRanges & oRanges)
   {
@@ -823,6 +830,8 @@ namespace
         it != oRanges.end();
         it++)
     {
+      if(isInvalidSymbol(it->getSymbol()))
+	continue;
       RangeKindToGUIDMap varNames;
       varNames[it->getRangeType()] = it->getSymbol();
       printSymbol(os, varNames);

@@ -1,6 +1,8 @@
 %% define set operations, negation as failure etc.
 :- include('utils.pl').
 
+%% filter invalid source ranges
+isInvalid(X) :- sourceRange(X, B, E, _), B >= E.
 
 %% nested sourceRanges
 containedWithin(X, Y) :- 

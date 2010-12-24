@@ -80,8 +80,14 @@ namespace
               bool orParen = false,
               bool orBrace = false)
   {
-    const llvm::MemoryBuffer *memBuffer = location.getBuffer();
+    // clang may give us invalid source locations for things it dreams up. we
+    // need to check for that. eg decare an anonymous struct within main()
+    if (location.isInvalid())
+      {
+	return 0;
+      }
     
+    const llvm::MemoryBuffer *memBuffer = location.getBuffer();
     const char * buffer = memBuffer->getBufferStart();
     const char * token  = location.getCharacterData();
     
@@ -405,6 +411,7 @@ namespace
       std::string str1;
       llvm::raw_string_ostream llvmstr1(str1);
       D->print(llvmstr1);
+      // std::cerr << "HAHA:\n" << llvmstr1.str() << "\n";
       size_t firstSpace = llvmstr1.str().find_first_of(" {");
       return llvmstr1.str().substr(0, firstSpace);
     }
@@ -555,52 +562,7 @@ namespace
     OffsetRanges VisitForStmt(ForStmt * S)
     {
       OffsetRanges oRanges;
-      
-      Stmt* init = S->getInit();
-      FullSourceLoc initB(init->getLocStart(), SM);
-      FullSourceLoc initE(init->getLocEnd(), SM);
-      size_t posInitB = scan(SCAN_BACKWARD, "(", initB, false);
-      size_t posInitE = scan(SCAN_FORWARD, ";", initE, false);
-      oRanges.insert(oRanges.begin(),
-                     OffsetRange(stmtToSymbolMap[init],
-                                 posInitB,
-                                 posInitE,
-                                 initB.getBuffer()->getBufferIdentifier(),
-                                 INITIALIZER));
-      _debug("ForStmt::INITIALIZER       - ");
-      _debug(stmtToSymbolMap[init]);
-      _debug("\n");
-      
-      Expr* C = S->getCond();
-      FullSourceLoc ifConditionB(C->getLocStart(), SM);
-      FullSourceLoc ifConditionE(C->getLocEnd(), SM);
-      size_t conditionBegin = scan(SCAN_BACKWARD, ";", ifConditionB, false);
-      size_t conditionEnd = scan(SCAN_FORWARD, ";", ifConditionE, false);
-      oRanges.insert(oRanges.begin(),
-                     OffsetRange(stmtToSymbolMap[C],
-                                 conditionBegin,
-                                 conditionEnd,
-                                 ifConditionB.getBuffer()->getBufferIdentifier(),
-                                 IFCONDITION));
-      _debug("ForStmt::IFCONDITION       - ");
-      _debug(stmtToSymbolMap[C]);
-      _debug("\n");
-      
-      Expr* inc = S->getInc();
-      FullSourceLoc incB(inc->getLocStart(), SM);
-      FullSourceLoc incE(inc->getLocEnd(), SM);
-      size_t posIncB = scan(SCAN_BACKWARD, ";", incB, false);
-      size_t posIncE = scan(SCAN_FORWARD, ")", incE, false);
-      oRanges.insert(oRanges.begin(),
-                     OffsetRange(stmtToSymbolMap[inc],
-                                 posIncB,
-                                 posIncE,
-                                 incB.getBuffer()->getBufferIdentifier(),
-                                 EXPR));
-      _debug("ForStmt::EXPR              - ");
-      _debug(stmtToSymbolMap[inc]);
-      _debug("\n");
-      
+
       Stmt* B = S->getBody();
       FullSourceLoc bodyB(B->getLocStart(), SM);
       FullSourceLoc bodyE(B->getLocEnd(), SM);
@@ -614,14 +576,92 @@ namespace
 	{
 	  posBodyE = scan(SCAN_FORWARD, ";", bodyE, true);
 	}
+      const char* fileName = bodyB.getBuffer()->getBufferIdentifier();
       oRanges.insert(oRanges.begin(),
                      OffsetRange(stmtToSymbolMap[S],
                                  posBodyB,
                                  posBodyE,
-                                 bodyB.getBuffer()->getBufferIdentifier(),
+                                 fileName,
                                  STMT));
       _debug("ForStmt::STMT              - ");
       _debug(stmtToSymbolMap[S]);
+      _debug("\n");      
+
+      Stmt* init = S->getInit();
+      size_t posInitB;
+      size_t posInitE;
+      if (init)
+	{
+	  FullSourceLoc initB(init->getLocStart(), SM);
+	  FullSourceLoc initE(init->getLocEnd(), SM);
+	  posInitB = scan(SCAN_BACKWARD, "(", initB, false);
+	  posInitE = scan(SCAN_FORWARD, ";", initE, false);
+	}
+      else
+	{
+	  posInitB = 0;
+	  posInitE = 0;
+	}
+      
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[init],
+                                 posInitB,
+                                 posInitE,
+                                 fileName,
+                                 INITIALIZER));
+      _debug("ForStmt::INITIALIZER       - ");
+      _debug(stmtToSymbolMap[init]);
+      _debug("\n");
+      
+      Expr* C = S->getCond();
+      size_t conditionBegin;
+      size_t conditionEnd;
+      if (C)
+	{
+	  FullSourceLoc ifConditionB(C->getLocStart(), SM);
+	  FullSourceLoc ifConditionE(C->getLocEnd(), SM);
+	  conditionBegin = scan(SCAN_BACKWARD, ";", ifConditionB, false);
+	  conditionEnd = scan(SCAN_FORWARD, ";", ifConditionE, false);
+	}
+      else
+	{
+	  conditionBegin = 0;
+	  conditionEnd = 0;
+	}
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[C],
+                                 conditionBegin,
+                                 conditionEnd,
+                                 fileName,
+                                 IFCONDITION));
+      _debug("ForStmt::IFCONDITION       - ");
+      _debug(stmtToSymbolMap[C]);
+      _debug("\n");
+      
+      Expr* inc = S->getInc();
+      size_t posIncB;
+      size_t posIncE;
+      if (inc)
+	{
+	  FullSourceLoc incB(inc->getLocStart(), SM);
+	  FullSourceLoc incE(inc->getLocEnd(), SM);
+	  posIncB = scan(SCAN_BACKWARD, ";", incB, false);
+	  posIncE = scan(SCAN_FORWARD, ")", incE, false);
+	}
+      else
+	{
+	  posIncB = 0;
+	  posIncE = 0;
+	}
+      
+      oRanges.insert(oRanges.begin(),
+                     OffsetRange(stmtToSymbolMap[inc],
+                                 posIncB,
+                                 posIncE,
+                                 fileName,
+                                 EXPR));
+      _debug("ForStmt::EXPR              - ");
+      _debug(stmtToSymbolMap[inc]);
       _debug("\n");
       
       return oRanges;
@@ -724,6 +764,8 @@ namespace
       
       FullSourceLoc stmtBegin(S->getLocStart(), SM);
       FullSourceLoc stmtEnd(S->getLocEnd(), SM);
+      S->dump();
+      
       size_t posBegin = stmtBegin.getCharacterData()
                       - stmtBegin.getBuffer()->getBufferStart();
       size_t posEnd = scan(SCAN_FORWARD, ";", stmtEnd, true);
