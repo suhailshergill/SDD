@@ -356,27 +356,30 @@ namespace
       
       return oRanges;
     }
-    
-    OffsetRanges VisitParmVarDecl(ParmVarDecl * D)
-    {
-      OffsetRanges oRanges;
+
+    // If we ever go to the level of function parameters we will need something
+    // much less simplistic than what we were doing here.
+
+    // OffsetRanges VisitParmVarDecl(ParmVarDecl * D)
+    // {
+    //   OffsetRanges oRanges;
       
-      FullSourceLoc parmB(D->getLocStart(), SM);
-      FullSourceLoc parmE(D->getLocEnd(), SM);
-      size_t beginLoc = scan(SCAN_BACKWARD, ",", parmB, false, true);
-      size_t endLoc = scan(SCAN_FORWARD, ",", parmE, false, true);
-      oRanges.insert(oRanges.begin(),
-                     OffsetRange(declToSymbolMap[D],
-                                 beginLoc,
-                                 endLoc, // TODO: check (SSS)
-                                 parmB.getBuffer()->getBufferIdentifier(),
-                                 DECL));
-      _debug("ParmVarDecl::DECL          - ");
-      _debug(declToSymbolMap[D]);
-      _debug("\n");
+    //   FullSourceLoc parmB(D->getLocStart(), SM);
+    //   FullSourceLoc parmE(D->getLocEnd(), SM);
+    //   size_t beginLoc = scan(SCAN_BACKWARD, ",", parmB, false, true);
+    //   size_t endLoc = scan(SCAN_FORWARD, ",", parmE, false, true);
+    //   oRanges.insert(oRanges.begin(),
+    //                  OffsetRange(declToSymbolMap[D],
+    //                              beginLoc,
+    //                              endLoc, // TODO: check (SSS)
+    //                              parmB.getBuffer()->getBufferIdentifier(),
+    //                              DECL));
+    //   _debug("ParmVarDecl::DECL          - ");
+    //   _debug(declToSymbolMap[D]);
+    //   _debug("\n");
       
-      return oRanges;
-    }
+    //   return oRanges;
+    // }
     
     OffsetRanges VisitFieldDecl(FieldDecl * D)
     {

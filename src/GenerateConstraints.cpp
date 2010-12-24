@@ -624,11 +624,11 @@ namespace
         Visit(D->getDescribedFunctionTemplate());
       }
       
-      for (unsigned int i = 0; i < D->getNumParams(); i++)
-      {
-        ParmVarDecl *P = D->getParamDecl(i);
-        Visit(P);
-      }
+      // for (unsigned int i = 0; i < D->getNumParams(); i++)
+      // {
+      //   ParmVarDecl *P = D->getParamDecl(i);
+      //   Visit(P);
+      // }
       
       FT = D->getPrimaryTemplate();
       if(FT) // if this is a FT instantiation or specialization
