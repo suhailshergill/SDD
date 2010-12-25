@@ -330,18 +330,21 @@ algorithm are summarized in \autoref{tbl:sddmin}.
 \begin{tabular}{| p{0.97\textwidth} |} \hline
 \emph{Semantic Delta-debugging Algorithm}
 \begin{algorithmic}
+\STATE \textbf{Input:} \emph{starting configuration}, \emph{dependencies} \newline
 \STATE $\mathcal{C} \gets$ \emph{starting configuration}.
 \WHILE{\emph{unmarked node left}}
 \STATE $n \gets$ maximum scoring node
 \STATE $D \gets dependents(n)$
 \STATE $\mathcal{C}^{'} \gets \mathcal{C} \setminus D$
-\STATE $t \gets test(\mathcal{C})$
+\STATE $t \gets test(\mathcal{C}^{'})$
 \IF{$t == $ FAIL} \STATE $\mathcal{C} \gets \mathcal{C}^{'}$
 \ELSIF{$t == $ PASS} \STATE $mark(enablers(n), \text{ESSENTIAL})$
 \ELSE \STATE $mark(n, \text{INCONSISTENT})$
  \ENDIF
 \ENDWHILE
 \STATE $\mathcal{C} \gets ddmin(\mathcal{C})$
+\newline
+\STATE \textbf{Output:} $\mathcal{C}$
 \end{algorithmic}
 
 \\  \hline
@@ -366,7 +369,7 @@ it carries out in order to find the $1$-minimal in terms of statistics
 associated with nodes in the \emph{dependency graph}. The goal of the heuristic
 search strategy is to remove constructs (and their dependencies) in the order
 which most quickly isolates the failure-inducing code until a minimally failing
-input has been found. This search strategy can be approached using either of the
+input has been found. This search strategy can be approached using any of the
 following techniques:
 \begin{itemize}
 \item \emph{Top-down}: Give more preference to nodes with larger dependent
@@ -376,9 +379,27 @@ following techniques:
   sets, i.e., work your way backwards from statements which make use of
   constructs (variables, functions etc.) to statements where these constructs
   are declared.
+\item \emph{Weighted average}: Rank the nodes in decreasing order of the
+  expected number of nodes that we will be able to label or delete (from the
+  current configuration) by removing a given node. It can be easily shown that
+  this can be achieved by sorting the nodes by the weighted average of the size
+  of their dependent and enabler sets (where the weights are given by the
+  probability that removing that node and its dependent sets will lead to a
+  failing or passing test case).
+\item \emph{Random}: Pick nodes randomly.
 \item \emph{Mixed}: Use one of the search heuristics as the primary heuristic
   and use the other to break ties.
 \end{itemize}
+
+It is clear that both the top-down and bottom-up search strategies can be seen
+as special cases of the weighted average strategy. Additionally, the mixed
+strategy is only a tie-breaking scheme. So really there are two main strategies,
+one is based on the weighted average of the size of the dependent and enabler
+sets and the other is just to pick nodes randomly. Now, the weighted average
+scheme can be shown to be optimal from a bayesian perspective, but there is a
+cost associated with computing those statistics. If that cost proves to be too
+prohibitive the randomized strategy may be preferred.
+
 %% It is not yet clear which method is superior, but the proposed dependency
 %% modifications should make the bottom-up search strategy a more attractive option
 %% than it is in a more traditional, dependency-unaware Delta Debugging.
@@ -400,21 +421,26 @@ the actual \emph{sddmin} algorithm was written in Python and we used PySWIP
 Our evaluation proceeded in two stages.  First, we compared the number of
 iterations required to find a minimal input by our algorithm and the ddmin
 algorithm of \citeauthor{dd}.  In order to ensure that the results we got were
-comparable we ran ddmin at the same syntactic granularity as our algorithm. We
-performed these tests on C-based test cases where ddmin is known to reduce the
-input size appreciably. The files taken for this stage of the evaluation are
-taken from GCC's \citep{gcc} test-suite and are known to cause internal compiler
-errors in version 3.4 of GCC.
+comparable we ran ddmin at the same syntactic granularity as our algorithm. The
+files taken for this stage of the evaluation are taken from GCC's \citep{gcc}
+test-suite and are known to cause internal compiler errors in version 3.4 of
+GCC.
 
-Next, we examined larger test cases with complex internal dependencies for
-which ddmin is unsuitable.  We modified one of the files (known as
-pr22061-large.c in \autoref{tbl:eval}) used in the first set of experiments and
-generated a larger C file with complex dependencies between structures using
-composition instead of inheritance.  This captures the spirit of the underlying
-problem without requiring the full machinery to handle all of C++.  Our goal
-with this inputs is to show that our algorithm can reduce the input size
-appreciably in a reasonable number of iterations in cases where \emph{ddmin}
-takes too long to converge.
+Next, we examined larger test cases with complex internal dependencies for which
+ddmin is unsuitable. Our goal with these inputs is to show that our algorithm
+can reduce the input size appreciably in a reasonable number of iterations in
+cases where \emph{ddmin} takes too long to converge. Not only that, we also
+managed to show that in examples which are complex enough not only does our
+algorithm terminate in fewer iterations and less time, but is also able to yield
+smaller minimizing test case than \emph{ddmin}. We modified one of the files
+(pr22061-1.c) used in the first set of experiments and generated two larger C
+files with complex dependencies between structures using composition instead of
+inheritance. This captures the spirit of the underlying problem without
+requiring the full machinery to handle all of C++. To try and test the
+performance of our algorithm when the dependencies generated by the constraint
+generation phase may not perfect we also added obfuscated C code to one of the
+files (pr22061-3.c). The added complexity was enough to trick our constraint
+generator.
 
 \begin{table*}
 \centering
@@ -422,35 +448,52 @@ takes too long to converge.
 \multirow{2}{*}{Program} & \multicolumn{3}{| c |}{ddmin} & \multicolumn{3}{| c |}{sddmin}\\ 
 & Inconsistent tests & Total tests & Time taken (sec) & Inconsistent tests & Total tests & Time taken (sec) \\ \hline
 \cline{2-3} \cline{3-4}
-\hline
-deprecated-2.c & 1 & 4& 0.26 & 2 & 6 & 0.35\\\hline
-20050607-1.c & 72 & 49 & 4.4 & 31 & 46 & 2.1\\\hline
-pr22061-1.c & 101 & 182 & 10.5 & 20 & 33 & 1.8\\\hline
-pr22061-large.c & 744 & 826 & 50.5 & 51 & 72 & 15.8\\\hline
+deprecated-2.c & 1 & 4& 0.3 & 2 & 6 & 0.5\\\hline
+20050607-1.c & 72 & 49 & 3.4 & 31 & 46 & 2.3\\\hline
+pr22061-1.c \label{pr22061} & 85 & 166 & 9.2 & 20 & 33 & 1.6\\\hline
 \end{tabular}
-\caption{Performance Numbers}
+\caption{Toy examples}
 \label{tbl:eval}
 \end{table*}
 
+
+\begin{table*}
+\centering
+\begin{tabular}{|l|p{1.6cm}|c| p{1.5cm}| p{1.6cm}| p{1.6cm}|c| p{1.5cm}| p{1.6cm}|} \hline
+\multirow{2}{*}{Program} & \multicolumn{4}{| c |}{ddmin} & \multicolumn{4}{| c |}{sddmin}\\ 
+& Inconsistent tests & Total tests & Minimized size & Time taken (sec) &
+Inconsistent tests & Total tests & Minimized size & Time taken (sec) \\ \hline
+pr22061-2.c & 744 & 826 & 10 & 50.5 & 52 & 76 & 10 & 13.4\\\hline
+pr22061-3.c \label{pr22061-obfuscated} & 15851 & 16503 & 89 & 880.2 & 1907 & 2308 & 26 & 442.6\\\hline
+\end{tabular}
+\caption{Performance on larger files}
+\label{tbl:eval2}
+\end{table*}
 
 %% We will also attempt to compare these results against the hierarchical
 %% delta-debugging algorithm of \citeauthor{hdd} (subject to being able to run
 %% their code).
 
-For the test cases that we ran our comparison on, both \emph{ddmin} and
-\emph{sddmin} produced the same minimal test-case, but as can be seen in
-\autoref{tbl:eval} our algorithm converged in significantly fewer number of
-iterations and less time. This difference is especially noticeable when we
-increased the size of the file (as can be seen in the case of
-pr22061-large.c). What is not included here is the time it took to generate the
-constraints, but in our experience that stage only took a fraction of a
-second. Perhaps on larger test cases still the difference would be noticeable,
-but we do not expect it to be a major bottleneck. Another thing to note is that
-for the numbers reported in \autoref{tbl:eval} we used the mixed search strategy
-using the top-down search heuristic as the primary heuristic. We ran the same
-tests using the other heuristics as well, but there was not a noticeable
-difference in performance. We leave it to future work to do a more thorough
-evaluation of the different search strategies.
+For the test cases in \autoref{tbl:eval}, both \emph{ddmin} and \emph{sddmin}
+produced the same minimal test-case. But as can be seen in \autoref{tbl:eval2}
+when we increased the program size not only did our algorithm converge in
+significantly fewer number of iterations and less time, it was also able to beat
+\emph{ddmin} in terms of the size of the minimizing test case. What is not
+included here is the time it took to generate the constraints, but in our
+experience that stage only took a fraction of a second even on the larger test
+cases. Another thing to note is that for the numbers reported in
+\autoref{tbl:eval} and \autoref{tbl:eval2} we used randomized search. Our
+current implementation of the inference system in SWI-Prolog is not able to
+effectively handle the added complexity of conducting more refined search when
+there are more than a couple of hundred nodes. For the toy examples there was
+not a noticeable difference in performance amongst the various search
+heuristics. We leave it to future work to do a more thorough evaluation of the
+different search strategies for non-trivial program sizes. One of the
+prerequisites for that would be to have an inference system which can handle a
+large number of nodes. One way to achieve that would be to have a custom
+querying framework which caches the results of intermediate queries. The
+inference system is, currently, the single biggest bottleneck of the present
+implementation.
 
 \section{Related Work}
 
@@ -492,7 +535,7 @@ more aggressive than is possible with slicing.
 As our preliminary results show we can get considerable savings in the number of
 iterations and time it takes to find the $1$-minimal test case by taking into
 account the rich dependency structure inherent in a given program. Additionally,
-the benefit of our technique as shown in \autoref{tbl:eval} lies over and above
+the benefit of our technique as shown in \autoref{tbl:eval2} lies over and above
 that which is gained by running \emph{ddmin} on the level of syntactic
 constructs.
 
@@ -512,7 +555,7 @@ project.
 While the ideas are translatable, there would be certain language-specific
 challenges to overcome depending on the language and its associated AST module.
 In this project, for example, we found that Clang's AST objects often had
-incorrect 'end-of-range' source locations associated with them, a drawback which
+incorrect `end-of-range' source locations associated with them, a drawback which
 goes largely unnoticed in most situations.
 
 %% SSS
