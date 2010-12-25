@@ -365,12 +365,12 @@ generate valid configurations.
 The obvious question that we are left with is how one can use these constraints
 to effectively search through the space of configurations to find a minimal test
 case. We have explained our algorithm and that it carries out a heuristic search
-it carries out in order to find the $1$-minimal in terms of statistics
-associated with nodes in the \emph{dependency graph}. The goal of the heuristic
-search strategy is to remove constructs (and their dependencies) in the order
-which most quickly isolates the failure-inducing code until a minimally failing
-input has been found. This search strategy can be approached using any of the
-following techniques:
+in order to find the $1$-minimal in terms of statistics associated with nodes in
+the \emph{dependency graph}. The goal of the heuristic search strategy is to
+remove constructs (and their dependencies) in the order which most quickly
+isolates the failure-inducing code until a minimally failing input has been
+found. This search strategy can be approached using any of the following
+techniques:
 \begin{itemize}
 \item \emph{Top-down}: Give more preference to nodes with larger dependent
   sets, i.e., start by removing top-level declarations (and things that
