@@ -259,7 +259,7 @@ def removeNodeList(fileName, symbols):
 
 
 
-def invokeSDD(testFile, topPreferred= False, ddmin=False):
+def invokeSDD(testFile, preference='RANDOM', ddmin=False):
     # import ipdb; ipdb.set_trace()
 
     global numberOfUnresolvedTests
@@ -272,10 +272,14 @@ def invokeSDD(testFile, topPreferred= False, ddmin=False):
     copy(testFile, currentMinimalFileName)
 
     searchHeuristic = None
-    if topPreferred:
+    if preference=='TOP':
         searchHeuristic = "topScoringRemovableWUD(X)"
-    else:
+    elif preference=='BOTTOM':
         searchHeuristic = "topScoringRemovableWUD2(X)"
+    elif preference == 'RANDOM':
+        searchHeuristic = "topScoringRemovableWUDR(X)"
+    elif preference == 'AVERAGE':
+        searchHeuristic = "topScoringRemovableWUDA(X)"
 
     if ddmin:
         getQueryResult("markAllUntrackedDependencies(L)")
@@ -375,6 +379,10 @@ def main(argv=None):
                       help = 'run vanilla ddmin')
     parser.add_option('-t', '--topPreferred', action='store_true', default=False,
                       help = 'give higher preference to top-level constructs')
+    parser.add_option('-r', '--randomPreferred', action='store_true', default=False,
+                      help = 'pick nodes randomly')
+    parser.add_option('-a', '--averagePreferred', action='store_true', default=False,
+                      help = 'pick nodes on weighted average')
 
 
     options, args = parser.parse_args(argv[1:])
@@ -389,6 +397,14 @@ def main(argv=None):
     if result != 'FAIL':
         return
         
+    preference = 'BOTTOM'
+    if options.topPreferred:
+        preference = 'TOP'
+    if options.randomPreferred:
+        preference = 'RANDOM'
+    if options.averagePreferred:
+        preference = 'AVERAGE'
+
     # stderr = None
     # if not options.verbose:
     #     stderr = open('/dev/null')
@@ -402,7 +418,7 @@ def main(argv=None):
         prolog.consult(item)
 
     # import ipdb; ipdb.set_trace()
-    s = 'invokeSDD("%s", %s, %s)' % (testFile, str(options.topPreferred), str(options.ddmin))
+    s = 'invokeSDD("%s", "%s", %s)' % (testFile, preference, str(options.ddmin))
     setup = "from __main__ import invokeSDD"
     t = timeit.Timer(stmt=s, setup=setup)
     # invokeSDD(testFile, options.topPreferred, options.ddmin)

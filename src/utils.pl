@@ -21,3 +21,10 @@ findMinW(Comparator, [H|T], CurrentFav, Result) :- (
 	call(Comparator, <, H, CurrentFav) -> findMinW(Comparator, T, H, Result);
 	findMinW(Comparator, T, CurrentFav, Result)).
 findMin(Comparator, [H|T], X) :- findMinW(Comparator, T, H, X).
+
+%% pick random element from list
+choose([], []).
+choose(List, Elt) :-
+        length(List, Length),
+        R is random(Length),
+        nth0(R, List, Elt).

@@ -209,6 +209,16 @@ sortAllHarmonicDesc(Order, Term1, Term2) :-
 	( H1 == H2 -> compare(Order, Term1, Term2);
 	    compare(Order, H2, H1)).
 
+sortAllAverageDesc(Order, Term1, Term2) :-
+	allDependingOn(Term1, TLDO1), length(TLDO1, TLDO1len), 
+	allDependingOn(Term2, TLDO2), length(TLDO2, TLDO2len),
+	allDependsOn(Term1, TLD1), length(TLD1, TLD1len),
+	allDependsOn(Term2, TLD2), length(TLD2, TLD2len),
+	A1 is (TLDO1len + TLD1len),
+	A2 is (TLDO2len + TLD2len),
+	( A1 == A2 -> compare(Order, Term1, Term2);
+	    compare(Order, A2, A1)).
+
 
 sortSourceRangeSize(Order, Term1, Term2) :- sourceRangeSize(Term1, T1Size),
 	sourceRangeSize(Term2, T2Size), 
@@ -242,6 +252,8 @@ topScoringRemovableWUD(X) :- allRemovableWUD(L), !,
 	findMin(sortAllDependingOnDescAllDependsOnDesc, L, X), !.
 topScoringRemovableWUDH(X) :- allRemovableWUD(L), !,
 	findMin(sortAllHarmonicDesc, L, X), !.
+topScoringRemovableWUDA(X) :- allRemovableWUD(L), !,
+	findMin(sortAllAverageDesc, L, X), !.
 topScoringRemovableWUDR(X) :- allRemovableWUD(L), !, choose(L, X), !.
 topScoringRemovableWUD2(X) :- allRemovableWUD(L), !,
 	findMin(sortAllDependsOnDescAllDependingOnDesc, L, X), !.
