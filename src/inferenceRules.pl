@@ -1,5 +1,6 @@
 %% define set operations, negation as failure etc.
-:- include('utils.pl').
+%% :- include('utils.pl').
+:- ensure_loaded('utils.pl').
 
 %% filter invalid source ranges
 isInvalid(X) :- sourceRange(X, B, E, _), B >= E.
