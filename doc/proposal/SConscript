@@ -1,0 +1,5 @@
+Import('*')
+
+pdf = env.PDF(source='proposal.tex', target='proposal.pdf')[0]
+Return("pdf")
+Default(pdf)

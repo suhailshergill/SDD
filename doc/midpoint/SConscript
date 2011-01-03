@@ -1,0 +1,5 @@
+Import('*')
+
+pdf = env.PDF(source='midpoint.tex', target='midpoint.pdf')[0]
+Return("pdf")
+Default(pdf)

@@ -1,12 +1,4 @@
-import os
-env = Environment(ENV=os.environ)
-
-
-if env.GetOption('silent'):
-    env.AppendUnique(
-        PDFLATEXFLAGS=['-file-line-error', '-interaction=batchmode'],
-        BIBTEXFLAGS='-terse',
-        )
+Import('*')
 
 pdf = env.PDF(source='report.tex', target='finalReport.pdf')[0]
 Depends(pdf, 'acm_proc_article-sp.cls')

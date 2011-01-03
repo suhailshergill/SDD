@@ -1,7 +1,0 @@
-The waf script in this directory does not yet work. Use the following commands
-in succession to generate the proposal draft.
-
-$> pdflatex \\nonstopmode\\input proposal.tex
-$> bibtex proposal
-$> pdflatex \\nonstopmode\\input proposal.tex
-$> pdflatex \\nonstopmode\\input proposal.tex

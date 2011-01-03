@@ -1,6 +1,7 @@
 \documentclass[11pt]{article}
-\input{template}
 
+\usepackage{fullpage}
+\usepackage{multirow}
 \usepackage{url}
 \usepackage{natbib}
 \usepackage{hyperref}
@@ -77,7 +78,7 @@ Thus far, we have developed the following components of our front-end:
   want for the various lexical elements so we have added helper functions
   to scan forward/backward in the source file. There are also helper methods in
   place responsible for printing out the Prolog predicates encapsulating source
-  range information and dependencies between various elements.
+  range information and dependencies between various elements.}
 \end{itemize}
 
 The visitors, which represent the majority of the complexity at this stage of
@@ -115,6 +116,6 @@ use in the evaluation phase with the intent of incorporating as many of the lang
 features as we can to allow us to run our algorithm on real-world code.
 
 \bibliographystyle{abbrvnat}
-\bibliography{midpointRefs}
+\bibliography{refs}
 
 \end{document}

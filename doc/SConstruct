@@ -1,6 +1,15 @@
 import os
 env = Environment(ENV=os.environ)
 
-output = SConscript('finalReport/SConscript', variant_dir='.build')
-install = Install('#', output)
-Default(install)
+if env.GetOption('silent'):
+    env.AppendUnique(
+        PDFLATEXFLAGS=['-file-line-error', '-interaction=batchmode'],
+        BIBTEXFLAGS='-terse',
+        )
+
+if COMMAND_LINE_TARGETS == []:
+   COMMAND_LINE_TARGETS.append('finalReport')
+
+for target in COMMAND_LINE_TARGETS:
+   output = SConscript('%s/SConscript' % target, variant_dir='.build', exports='env')
+   Install('#', output)
