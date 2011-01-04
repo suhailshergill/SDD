@@ -2,3 +2,9 @@
 /.build
 /bin/GenerateConstraints
 /.lock-wscript
+/doc/.build/
+*.pdf
+*.out
+*.o
+*.pyc
+/src/out.txt
