@@ -18,7 +18,7 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Support/ManagedStatic.h>
 #include <llvm/Support/Timer.h>
-#include <llvm/System/Path.h>
+#include <llvm/Support/Path.h>
 #include <llvm/Target/TargetSelect.h>
 
 using namespace clang;
