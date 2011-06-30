@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
   argv = argv+1;
   llvm::OwningPtr<CompilerInstance> clang(new CompilerInstance());
 
-  clang->setLLVMContext(new llvm::LLVMContext());
+  // clang->setLLVMContext(new llvm::LLVMContext());
 
   // Initialize targets first, so that --version shows registered targets.
   // llvm::InitializeAllTargets();
