@@ -70,24 +70,23 @@ namespace
   class DeclForTypeVisitor : public TypeVisitor<DeclForTypeVisitor, Decl*>
   {
   public:
-    Decl* VisitTypedefType(TypedefType *T)
+    Decl* VisitTypedefType(const TypedefType *T)
     {
       return T->getDecl();
     }
     
-    Decl* VisitPointerType(PointerType *T)
+    Decl* VisitPointerType(const PointerType *T)
     {
     	QualType qt = T->getPointeeType();
-      Type* pt = qt.getTypePtr();
-      return Visit(pt);
+      return Visit(qt.getTypePtr());
     }
     
-    Decl* VisitTagType(TagType *T)
+    Decl* VisitTagType(const TagType *T)
     {
       return T->getDecl();
     }
     
-    Decl* VisitType(Type *T)
+    Decl* VisitType(const Type *T)
     {
       return NULL;
     }
@@ -696,10 +695,8 @@ namespace
     
     String getDeclarationForType(QualType qt)
     {
-      Type* T = qt.getTypePtr();
-      
       DeclForTypeVisitor dftv;
-      Decl* D = dftv.Visit(T);
+      Decl* D = dftv.Visit(qt.getTypePtr());
       
       return declToSymbolMap[D];
     }
