@@ -1,3 +1,4 @@
+#include <clang/Basic/DiagnosticIDs.h>
 #include <clang/Basic/Diagnostic.h>
 #include <clang/Driver/Arg.h>
 #include <clang/Driver/ArgList.h>
@@ -47,7 +48,8 @@ int main(int argc, char* argv[])
   // llvm::InitializeAllAsmParsers();
 
   TextDiagnosticBuffer *diagsBuffer = new TextDiagnosticBuffer;
-  Diagnostic diags(diagsBuffer);
+  llvm::IntrusiveRefCntPtr<DiagnosticIDs> diagIDs(clang->getDiagnostics().getDiagnosticIDs());
+  Diagnostic diags(diagIDs, diagsBuffer);
   CompilerInvocation::CreateFromArgs(clang->getInvocation(),
       const_cast<const char**>(argv),
       const_cast<const char**>(argv+argc),
