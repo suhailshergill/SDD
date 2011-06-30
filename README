@@ -1,5 +1,5 @@
 Configure once using:
-  ./waf configure --llvm-prefix=/unsup/llvm-2.8 --prefix=`pwd`
+  ./waf configure --llvm-prefix=/unsup/llvm-2.9 --prefix=`pwd`
 
  This tells waf to install into the bin/ directory
 
