@@ -32,9 +32,9 @@ def build(bld):
     #bld.recurse('doc')
     cgen = bld.new_task_gen(
         features = 'cxx cprogram',
-        source = [ 'src/Driver.cpp',
-                   'src/GenerateConstraints.cpp',
-                   'src/RealSourceRanges.cpp',
+        source = [ 'src/frontend/Driver.cpp',
+                   'src/frontend/GenerateConstraints.cpp',
+                   'src/frontend/RealSourceRanges.cpp',
                    ],
         rpath = bld.get_env()['LLVMLIBDIR'],
         target = 'GenerateConstraints',
