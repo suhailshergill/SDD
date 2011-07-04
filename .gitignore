@@ -6,5 +6,11 @@
 *.pdf
 *.out
 *.o
+
 *.pyc
-/src/out.txt
+ipython_log.py
+
+TAGS
+
+# XSB specific
+*.xwam
