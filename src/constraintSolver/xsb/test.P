@@ -1,0 +1,26 @@
+isDeclaration(d1).
+sourceRange(d1, 1, 34, 'hello.cpp').
+dependsOn(d1, s1).
+
+isInitializer(i1).
+sourceRange(i1, 10, 34, 'hello.cpp').
+
+isStatement(s1).
+sourceRange(s1, 1, 34, 'hello.c').
+
+isStatement(s2).
+sourceRange(s2, 1, 34, 'hello.cpp').
+
+isStatement(s3).
+sourceRange(s3, 48, 56, 'hello.cpp').
+
+isFunction(f1).
+sourceRange(f1, 46, 59, 'hello.cpp').
+isMain(f1).
+
+isFunction(f2).
+sourceRange(f2, 63, 78, 'hello.cpp').
+
+
+isCompoundStatement(c1).
+sourceRange(c1, 46, 58, 'hello.cpp').
