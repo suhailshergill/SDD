@@ -1,0 +1,10 @@
+In order to run the delta-debugging algorithm on file FILE.c do the following:
+
+$> ./GCCDD.py FILE.c
+
+GCCDD.py has been modified from the file available at
+http://www.st.cs.uni-saarland.de/dd/GCCDD.py.
+
+DD.py contains the Python implementation of Zeller's delta-debugging algorithm
+as obtained from http://www.st.cs.uni-sb.de/dd/ddusage.php3. This file hasn't
+been modified.
