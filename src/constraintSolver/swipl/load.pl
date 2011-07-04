@@ -7,4 +7,4 @@
 
 :- ensure_loaded('out.txt').
 :- ensure_loaded('inferenceRules.pl').
-%% :- ['out.txt', 'inferenceRules.pl'].
+%% :- ['../tests/out.txt', 'inferenceRules.pl'].
