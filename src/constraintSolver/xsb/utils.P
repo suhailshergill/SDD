@@ -1,0 +1,57 @@
+%% define negation as failure
+%% not(P) :- (call(P) -> fail ; true).
+
+%% define set operations
+
+%% always succeeds
+safeSetOf(Template, Goal, Set) :- (
+	setof(Template, Goal, X) -> Set = X;
+	Set = []
+    ).
+
+
+%% define include and exclude
+%% include(:Goal, +List1, ?List2)
+include(_, [], []).
+include(P, [H|T], L) :-
+	( call(P, H) ->
+	    L = [H|L1]
+	;
+	    L = L1
+        ),
+	include(P, T, L1).
+exclude(_, [], []).
+exclude(P, [H|T], L) :-
+	( call(P, H) ->
+	    L = L1
+	;
+	    L = [H|L1]
+        ),
+	exclude(P, T, L1).
+:- import length/2, ith/3 from basics.
+nth0(R, List, Elt) :- R1 is R + 1, ith(R1, List, Elt).
+
+%% fails on an empty list
+findMaxW(_, [], CurrentFav, CurrentFav).
+findMaxW(Comparator, [H|T], CurrentFav, Result) :- (
+	call(Comparator, >, H, CurrentFav) -> findMaxW(Comparator, T, H, Result);
+	findMaxW(Comparator, T, CurrentFav, Result)).
+findMax(Comparator, [H|T], X) :- findMaxW(Comparator, T, H, X).
+
+findMinW(_, [], CurrentFav, CurrentFav).
+findMinW(Comparator, [H|T], CurrentFav, Result) :- (
+	call(Comparator, <, H, CurrentFav) -> findMinW(Comparator, T, H, Result);
+	findMinW(Comparator, T, CurrentFav, Result)).
+findMin(Comparator, [H|T], X) :- findMinW(Comparator, T, H, X).
+
+%% pick random element from list
+choose([], []).
+%% choose(List, Elt) :-
+%%         length(List, Length),
+%%         R is random(Length),
+%%         nth0(R, List, Elt).
+:- import random/3 from random.
+choose(List, Elt) :-
+        length(List, Length),
+        random(0, Length, R),
+        nth0(R, List, Elt).
